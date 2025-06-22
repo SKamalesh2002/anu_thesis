@@ -1,0 +1,326 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from scipy.stats import mannwhitneyu, ttest_ind, ks_2samp, chi2_contingency
+from scipy.stats import kruskal, ranksums, wilcoxon
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Page configuration
+st.set_page_config(
+    page_title="Medical Data Analysis Dashboard",
+    page_icon="🏥",
+    layout="wide"
+)
+
+# Title and description
+st.title("🏥 Medical Data Analysis Dashboard")
+st.markdown("### Multiple Statistical Tests Analysis for Clinical Outcomes")
+
+# Load data
+@st.cache_data
+def load_data():
+    df = pd.read_csv("_Thesis - Sheet1.csv")
+    
+    # Clean INITIAL LACTATE column
+    df['INITIAL LACTATE (clean)'] = df['INITIAL LACTATE'].str.extract(r'([\d.]+)').astype(float)
+    
+    # Clean LACTATE CLEARANCE column (matching your approach)
+    df['LACTATE CLEARANCE (clean)'] = df['LACTATE CLEARANCE'].str.extract(r'([\d.]+)').astype(float)
+    
+    return df
+
+try:
+    df = load_data()
+    
+    # Sidebar for navigation
+    st.sidebar.title("Navigation")
+    analysis_type = st.sidebar.selectbox(
+        "Select Analysis",
+        ["Overview", "Initial Lactate Analysis", "Lactate Clearance Analysis", "Combined Analysis"]
+    )
+    
+    if analysis_type == "Overview":
+        st.header("📊 Data Overview")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Patients", len(df))
+        with col2:
+            alive_count = len(df[df['CLINICAL OUTCOMES'] == 'ALIVE'])
+            st.metric("Alive", alive_count)
+        with col3:
+            dead_count = len(df[df['CLINICAL OUTCOMES'] == 'DEAD'])
+            st.metric("Dead", dead_count)
+        with col4:
+            survival_rate = (alive_count / len(df)) * 100
+            st.metric("Survival Rate", f"{survival_rate:.1f}%")
+        
+        # Outcome distribution pie chart
+        fig_pie = px.pie(
+            values=[alive_count, dead_count],
+            names=['ALIVE', 'DEAD'],
+            title="Clinical Outcomes Distribution",
+            color_discrete_map={'ALIVE': '#2E8B57', 'DEAD': '#DC143C'}
+        )
+        st.plotly_chart(fig_pie, use_container_width=True)
+        
+        # Age distribution
+        fig_age = px.histogram(
+            df, x='AGE', color='CLINICAL OUTCOMES',
+            title="Age Distribution by Clinical Outcome",
+            nbins=20,
+            color_discrete_map={'ALIVE': '#2E8B57', 'DEAD': '#DC143C'}
+        )
+        st.plotly_chart(fig_age, use_container_width=True)
+    
+    elif analysis_type == "Initial Lactate Analysis":
+        st.header("🧪 Initial Lactate vs Clinical Outcomes")
+        
+        # Filter data
+        filtered_df = df[['INITIAL LACTATE (clean)', 'CLINICAL OUTCOMES']].dropna()
+        alive_group = filtered_df[filtered_df['CLINICAL OUTCOMES'] == 'ALIVE']['INITIAL LACTATE (clean)']
+        dead_group = filtered_df[filtered_df['CLINICAL OUTCOMES'] == 'DEAD']['INITIAL LACTATE (clean)']
+        
+        # Mann-Whitney U Test
+        u_stat, p_value = mannwhitneyu(alive_group, dead_group, alternative='two-sided')
+        
+        # Display test results
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("U-Statistic", f"{u_stat:.2f}")
+        with col2:
+            st.metric("P-Value", f"{p_value:.4f}")
+        with col3:
+            significance = "Significant" if p_value < 0.05 else "Not Significant"
+            st.metric("Result", significance)
+        
+        # Box plot
+        fig_box = go.Figure()
+        fig_box.add_trace(go.Box(y=alive_group, name='ALIVE', marker_color='#2E8B57'))
+        fig_box.add_trace(go.Box(y=dead_group, name='DEAD', marker_color='#DC143C'))
+        fig_box.update_layout(
+            title="Initial Lactate Distribution by Clinical Outcome",
+            yaxis_title="Initial Lactate (mmol/L)",
+            xaxis_title="Clinical Outcome"
+        )
+        st.plotly_chart(fig_box, use_container_width=True)
+        
+        # Violin plot
+        fig_violin = go.Figure()
+        fig_violin.add_trace(go.Violin(y=alive_group, name='ALIVE', box_visible=True, 
+                                     line_color='#2E8B57', fillcolor='rgba(46,139,87,0.5)'))
+        fig_violin.add_trace(go.Violin(y=dead_group, name='DEAD', box_visible=True,
+                                     line_color='#DC143C', fillcolor='rgba(220,20,60,0.5)'))
+        fig_violin.update_layout(
+            title="Initial Lactate Distribution (Violin Plot)",
+            yaxis_title="Initial Lactate (mmol/L)"
+        )
+        st.plotly_chart(fig_violin, use_container_width=True)
+        
+        # Summary statistics
+        st.subheader("📈 Summary Statistics")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**ALIVE Group**")
+            st.write(f"Mean: {alive_group.mean():.2f} mmol/L")
+            st.write(f"Median: {alive_group.median():.2f} mmol/L")
+            st.write(f"Std Dev: {alive_group.std():.2f} mmol/L")
+            st.write(f"Count: {len(alive_group)}")
+        
+        with col2:
+            st.write("**DEAD Group**")
+            st.write(f"Mean: {dead_group.mean():.2f} mmol/L")
+            st.write(f"Median: {dead_group.median():.2f} mmol/L")
+            st.write(f"Std Dev: {dead_group.std():.2f} mmol/L")
+            st.write(f"Count: {len(dead_group)}")
+    
+    elif analysis_type == "Lactate Clearance Analysis":
+        st.header("🔄 Lactate Clearance vs Clinical Outcomes")
+        
+        # Filter data (matching your approach)
+        filtered_df = df[['LACTATE CLEARANCE (clean)', 'CLINICAL OUTCOMES']].dropna()
+        alive_group = filtered_df[filtered_df['CLINICAL OUTCOMES'].str.upper() == 'ALIVE']['LACTATE CLEARANCE (clean)']
+        dead_group = filtered_df[filtered_df['CLINICAL OUTCOMES'].str.upper() == 'DEAD']['LACTATE CLEARANCE (clean)']
+        
+        # Multiple Statistical Tests
+        st.subheader("📊 Statistical Test Results")
+        
+        # 1. Mann-Whitney U Test
+        u_stat, p_mw = mannwhitneyu(alive_group, dead_group, alternative='two-sided')
+        
+        # 2. Welch's t-test (unequal variances)
+        t_stat, p_ttest = ttest_ind(alive_group, dead_group, equal_var=False)
+        
+        # 3. Kolmogorov-Smirnov test
+        ks_stat, p_ks = ks_2samp(alive_group, dead_group)
+        
+        # 4. Permutation test
+        from scipy.stats import permutation_test
+        def stat_func(x, y):
+            return np.mean(x) - np.mean(y)
+        perm_test = permutation_test((alive_group, dead_group), stat_func, n_resamples=10000)
+        p_perm = perm_test.pvalue
+        
+        # 5. Bootstrap test
+        from scipy.stats import bootstrap
+        boot_test = bootstrap((alive_group, dead_group), stat_func, n_resamples=10000)
+        p_boot = boot_test.confidence_interval[0]
+        
+        # Create test results table
+        test_results = {
+            'Test': ['T-test', 'Mann-Whitney U', 'Kolmogorov-Smirnov', 'Permutation', 'Bootstrap'],
+            'Statistic': [t_stat, u_stat, ks_stat, perm_test.statistic, boot_test.confidence_interval[0]],
+            'P-Value': [p_ttest, p_mw, p_ks, p_perm, p_boot],
+            'Significant': ['Yes' if p < 0.05 else 'No' for p in [p_ttest, p_mw, p_ks, p_perm, p_boot]]
+        }
+        
+        results_df = pd.DataFrame(test_results)
+        st.dataframe(results_df.round(4), use_container_width=True)
+        
+        # Highlight most significant test
+        p_values = [p_ttest, p_mw, p_ks, p_perm, p_boot]
+        min_p = min(p_values)
+        best_test_idx = p_values.index(min_p)
+        best_test = test_results['Test'][best_test_idx]
+        st.success(f"🎯 Most significant result: **{best_test}** (p = {min_p:.4f})")
+        
+        # Box plot
+        fig_box = go.Figure()
+        fig_box.add_trace(go.Box(y=alive_group, name='ALIVE', marker_color='#2E8B57'))
+        fig_box.add_trace(go.Box(y=dead_group, name='DEAD', marker_color='#DC143C'))
+        fig_box.update_layout(
+            title="Lactate Clearance Distribution by Clinical Outcome",
+            yaxis_title="Lactate Clearance (%)",
+            xaxis_title="Clinical Outcome"
+        )
+        st.plotly_chart(fig_box, use_container_width=True)
+        
+        # Histogram
+        fig_hist = go.Figure()
+        fig_hist.add_trace(go.Histogram(x=alive_group, name='ALIVE', opacity=0.7, 
+                                      marker_color='#2E8B57', nbinsx=20))
+        fig_hist.add_trace(go.Histogram(x=dead_group, name='DEAD', opacity=0.7,
+                                      marker_color='#DC143C', nbinsx=20))
+        fig_hist.update_layout(
+            title="Lactate Clearance Distribution Histogram",
+            xaxis_title="Lactate Clearance (%)",
+            yaxis_title="Frequency",
+            barmode='overlay'
+        )
+        st.plotly_chart(fig_hist, use_container_width=True)
+        
+        # Summary statistics
+        st.subheader("📈 Summary Statistics")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**ALIVE Group**")
+            st.write(f"Mean: {alive_group.mean():.2f}%")
+            st.write(f"Median: {alive_group.median():.2f}%")
+            st.write(f"Std Dev: {alive_group.std():.2f}%")
+            st.write(f"Count: {len(alive_group)}")
+        
+        with col2:
+            st.write("**DEAD Group**")
+            st.write(f"Mean: {dead_group.mean():.2f}%")
+            st.write(f"Median: {dead_group.median():.2f}%")
+            st.write(f"Std Dev: {dead_group.std():.2f}%")
+            st.write(f"Count: {len(dead_group)}")
+    
+    elif analysis_type == "Combined Analysis":
+        st.header("🔬 Combined Analysis Dashboard")
+        
+        # Prepare data for both tests
+        initial_df = df[['INITIAL LACTATE (clean)', 'CLINICAL OUTCOMES']].dropna()
+        clearance_df = df[['LACTATE CLEARANCE (clean)', 'CLINICAL OUTCOMES']].dropna()
+        
+        # Initial Lactate groups
+        initial_alive = initial_df[initial_df['CLINICAL OUTCOMES'] == 'ALIVE']['INITIAL LACTATE (clean)']
+        initial_dead = initial_df[initial_df['CLINICAL OUTCOMES'] == 'DEAD']['INITIAL LACTATE (clean)']
+        
+        # Clearance groups
+        clearance_alive = clearance_df[clearance_df['CLINICAL OUTCOMES'] == 'ALIVE']['LACTATE CLEARANCE (clean)']
+        clearance_dead = clearance_df[clearance_df['CLINICAL OUTCOMES'] == 'DEAD']['LACTATE CLEARANCE (clean)']
+        
+        # Perform tests
+        u_stat_initial, p_val_initial = mannwhitneyu(initial_alive, initial_dead, alternative='two-sided')
+        u_stat_clearance, p_val_clearance = mannwhitneyu(clearance_alive, clearance_dead, alternative='two-sided')
+        
+        # Test results table
+        st.subheader("🧪 Mann-Whitney U Test Results")
+        results_data = {
+            'Test': ['Initial Lactate vs Outcomes', 'Lactate Clearance vs Outcomes'],
+            'U-Statistic': [u_stat_initial, u_stat_clearance],
+            'P-Value': [p_val_initial, p_val_clearance],
+            'Significant (α=0.05)': [
+                'Yes' if p_val_initial < 0.05 else 'No',
+                'Yes' if p_val_clearance < 0.05 else 'No'
+            ]
+        }
+        results_df = pd.DataFrame(results_data)
+        st.dataframe(results_df, use_container_width=True)
+        
+        # Side-by-side comparison
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Initial Lactate scatter plot
+            fig_scatter1 = px.scatter(
+                initial_df, 
+                x='CLINICAL OUTCOMES', 
+                y='INITIAL LACTATE (clean)',
+                color='CLINICAL OUTCOMES',
+                title="Initial Lactate by Outcome",
+                color_discrete_map={'ALIVE': '#2E8B57', 'DEAD': '#DC143C'}
+            )
+            fig_scatter1.add_hline(y=initial_df['INITIAL LACTATE (clean)'].mean(), 
+                                 line_dash="dash", line_color="gray",
+                                 annotation_text=f"Mean: {initial_df['INITIAL LACTATE (clean)'].mean():.2f}")
+            st.plotly_chart(fig_scatter1, use_container_width=True)
+        
+        with col2:
+            # Lactate Clearance scatter plot
+            fig_scatter2 = px.scatter(
+                clearance_df, 
+                x='CLINICAL OUTCOMES', 
+                y='LACTATE CLEARANCE (clean)',
+                color='CLINICAL OUTCOMES',
+                title="Lactate Clearance by Outcome",
+                color_discrete_map={'ALIVE': '#2E8B57', 'DEAD': '#DC143C'}
+            )
+            fig_scatter2.add_hline(y=clearance_df['LACTATE CLEARANCE (clean)'].mean(), 
+                                 line_dash="dash", line_color="gray",
+                                 annotation_text=f"Mean: {clearance_df['LACTATE CLEARANCE (clean)'].mean():.2f}")
+            st.plotly_chart(fig_scatter2, use_container_width=True)
+        
+        # Correlation analysis
+        st.subheader("🔗 Correlation Analysis")
+        correlation_df = df[['INITIAL LACTATE (clean)', 'LACTATE CLEARANCE (clean)']].dropna()
+        correlation = correlation_df.corr().iloc[0, 1]
+        
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            st.metric("Correlation Coefficient", f"{correlation:.3f}")
+        
+        with col2:
+            fig_corr = px.scatter(
+                correlation_df,
+                x='INITIAL LACTATE (clean)',
+                y='LACTATE CLEARANCE (clean)',
+                title="Initial Lactate vs Lactate Clearance"
+            )
+            st.plotly_chart(fig_corr, use_container_width=True)
+
+except FileNotFoundError:
+    st.error("❌ CSV file not found. Please ensure '_Thesis - Sheet1.csv' is in the same directory as this script.")
+except Exception as e:
+    st.error(f"❌ An error occurred: {str(e)}")
+
+# Footer
+st.markdown("---")
+st.markdown("*Dashboard created for medical data analysis using multiple statistical tests*")
