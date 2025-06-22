@@ -196,7 +196,36 @@ try:
             male_percentage = (male_count / len(df)) * 100
             st.metric("Male Percentage", f"{male_percentage:.1f}%")
         
-        # Age distribution
+        # Age group analysis
+        st.subheader("🎂 Age Group Analysis")
+        
+        # Create age groups
+        df['Age_Group'] = pd.cut(df['AGE'], bins=[0, 40, 60, 80, 100], labels=['20-40', '41-60', '61-80', '>80'], right=True)
+        age_group_counts = df['Age_Group'].value_counts().sort_index()
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Age group pie chart
+            fig_age_pie = px.pie(
+                values=age_group_counts.values,
+                names=age_group_counts.index,
+                title="Age Group Distribution",
+                color_discrete_sequence=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4']
+            )
+            st.plotly_chart(fig_age_pie, use_container_width=True)
+        
+        with col2:
+            # Age group table
+            age_group_df = pd.DataFrame({
+                'Age Group': age_group_counts.index,
+                'Count': age_group_counts.values,
+                'Percentage': (age_group_counts.values / len(df) * 100).round(1)
+            })
+            st.write("**Age Group Distribution Table**")
+            st.dataframe(age_group_df, use_container_width=True, hide_index=True)
+        
+        # Age distribution histogram
         fig_age = px.histogram(
             df, x='AGE', color='CLINICAL OUTCOMES',
             title="Age Distribution by Clinical Outcome",
