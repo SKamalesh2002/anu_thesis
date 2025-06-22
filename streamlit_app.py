@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 # Page configuration
 st.set_page_config(
-    page_title="Medical Data Analysis Dashboard",
+    page_title="Anu's Medical Data Analysis Dashboard",
     page_icon="🏥",
     layout="wide"
 )
