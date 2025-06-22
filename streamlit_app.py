@@ -20,10 +20,25 @@ st.set_page_config(
 st.title("🏥 Medical Data Analysis Dashboard")
 st.markdown("### Multiple Statistical Tests Analysis for Clinical Outcomes")
 
+# File upload section
+st.sidebar.title("📁 Data Upload")
+uploaded_file = st.sidebar.file_uploader(
+    "Upload your CSV file", 
+    type=['csv'],
+    help="Upload the medical data CSV file to begin analysis"
+)
+
 # Load data
 @st.cache_data
-def load_data():
-    df = pd.read_csv("_Thesis - Sheet1.csv")
+def load_data(file):
+    if file is not None:
+        df = pd.read_csv(file)
+    else:
+        # Try to load default file if it exists
+        try:
+            df = pd.read_csv("_Thesis - Sheet1.csv")
+        except FileNotFoundError:
+            return None
     
     # Clean INITIAL LACTATE column
     df['INITIAL LACTATE (clean)'] = df['INITIAL LACTATE'].str.extract(r'([\d.]+)').astype(float)
@@ -36,8 +51,48 @@ def load_data():
     
     return df
 
+df = load_data(uploaded_file)
+
+if df is None:
+    st.warning("⚠️ Please upload a CSV file to begin analysis")
+    st.info("📋 Expected CSV columns: INITIAL LACTATE, LACTATE CLEARANCE, REPEAT LACTATE, CLINICAL OUTCOMES, AGE, K/C/O, SBP, DBP, SPO2%, CBG, HR")
+    
+    # Option to use sample data
+    if st.sidebar.button("🎲 Generate Sample Data for Demo"):
+        @st.cache_data
+        def create_sample_data():
+            np.random.seed(42)
+            n_samples = 100
+            
+            sample_data = {
+                'INITIAL LACTATE': [f"{np.random.normal(3.5, 1.2):.1f}" for _ in range(n_samples)],
+                'LACTATE CLEARANCE': [f"{np.random.normal(25, 15):.1f}%" for _ in range(n_samples)],
+                'REPEAT LACTATE': [f"{np.random.normal(2.8, 1.0):.1f}" for _ in range(n_samples)],
+                'CLINICAL OUTCOMES': np.random.choice(['ALIVE', 'DEAD'], n_samples, p=[0.7, 0.3]),
+                'AGE': np.random.randint(18, 90, n_samples),
+                'K/C/O': np.random.choice(['CAD', 'SHTN', 'T2DM', 'CAD+SHTN', 'SHTN+T2DM', 'None'], n_samples),
+                'SBP': [f"{np.random.randint(90, 180)}" for _ in range(n_samples)],
+                'DBP': [f"{np.random.randint(60, 110)}" for _ in range(n_samples)],
+                'SPO2%': [f"{np.random.randint(85, 100)}%" for _ in range(n_samples)],
+                'CBG': [f"{np.random.randint(70, 200)}" for _ in range(n_samples)],
+                'HR': [f"{np.random.randint(40, 120)}" for _ in range(n_samples)]
+            }
+            
+            df = pd.DataFrame(sample_data)
+            
+            # Clean columns
+            df['INITIAL LACTATE (clean)'] = df['INITIAL LACTATE'].str.extract(r'([\d.]+)').astype(float)
+            df['LACTATE CLEARANCE (clean)'] = df['LACTATE CLEARANCE'].str.extract(r'([\d.]+)').astype(float)
+            df['REPEAT LACTATE (clean)'] = df['REPEAT LACTATE'].str.extract(r'([\d.]+)').astype(float)
+            
+            return df
+        
+        df = create_sample_data()
+        st.success("✅ Sample data generated! You can now explore the dashboard.")
+    else:
+        st.stop()
+
 try:
-    df = load_data()
     
     # Sidebar for navigation
     st.sidebar.title("Navigation")
@@ -861,9 +916,11 @@ try:
             st.plotly_chart(fig_corr, use_container_width=True)
 
 except FileNotFoundError:
-    st.error("❌ CSV file not found. Please ensure '_Thesis - Sheet1.csv' is in the same directory as this script.")
+    st.error("❌ CSV file not found. Please upload your data file using the sidebar.")
+    st.info("💡 Tip: Use the file uploader in the sidebar or generate sample data to test the dashboard.")
 except Exception as e:
     st.error(f"❌ An error occurred: {str(e)}")
+    st.info("💡 Please check your data format and try again.")
 
 # Footer
 st.markdown("---")
