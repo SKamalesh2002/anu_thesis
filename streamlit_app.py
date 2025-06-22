@@ -159,14 +159,42 @@ try:
             survival_rate = (alive_count / len(df)) * 100
             st.metric("Survival Rate", f"{survival_rate:.1f}%")
         
-        # Outcome distribution pie chart
-        fig_pie = px.pie(
-            values=[alive_count, dead_count],
-            names=['ALIVE', 'DEAD'],
-            title="Clinical Outcomes Distribution",
-            color_discrete_map={'ALIVE': '#2E8B57', 'DEAD': '#DC143C'}
-        )
-        st.plotly_chart(fig_pie, use_container_width=True)
+        # Charts in two columns
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Outcome distribution pie chart
+            fig_pie = px.pie(
+                values=[alive_count, dead_count],
+                names=['ALIVE', 'DEAD'],
+                title="Clinical Outcomes Distribution",
+                color_discrete_map={'ALIVE': '#2E8B57', 'DEAD': '#DC143C'}
+            )
+            st.plotly_chart(fig_pie, use_container_width=True)
+        
+        with col2:
+            # Gender distribution pie chart
+            male_count = len(df[df['SEX'] == 'MALE'])
+            female_count = len(df[df['SEX'] == 'FEMALE'])
+            
+            fig_gender = px.pie(
+                values=[male_count, female_count],
+                names=['MALE', 'FEMALE'],
+                title="Gender Distribution",
+                color_discrete_map={'MALE': '#4169E1', 'FEMALE': '#FF69B4'}
+            )
+            st.plotly_chart(fig_gender, use_container_width=True)
+        
+        # Gender counts display
+        st.subheader("👥 Gender Analysis")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Male Patients", male_count)
+        with col2:
+            st.metric("Female Patients", female_count)
+        with col3:
+            male_percentage = (male_count / len(df)) * 100
+            st.metric("Male Percentage", f"{male_percentage:.1f}%")
         
         # Age distribution
         fig_age = px.histogram(
