@@ -17,7 +17,7 @@ st.set_page_config(
 )
 
 # Title and description
-st.title("🏥 Medical Data Analysis Dashboard")
+st.title("🏥 Anu's Medical Data Analysis Dashboard")
 st.markdown("### Multiple Statistical Tests Analysis for Clinical Outcomes")
 
 # File upload section
