@@ -43,7 +43,7 @@ try:
     st.sidebar.title("Navigation")
     analysis_type = st.sidebar.selectbox(
         "Select Analysis",
-        ["Overview", "Initial Lactate Analysis", "Lactate Clearance Analysis", "Repeat Lactate Analysis", "Age Analysis", "CAD Analysis", "Combined Analysis"]
+        ["Overview", "Initial Lactate Analysis", "Lactate Clearance Analysis", "Repeat Lactate Analysis", "Age Analysis", "CAD Analysis", "SHTN+T2DM Analysis", "Unstable Hemodynamic Analysis", "Combined Analysis"]
     )
     
     if analysis_type == "Overview":
@@ -504,6 +504,195 @@ try:
             st.write(f"Dead: {no_cad_dead}")
             st.write(f"Survival Rate: {no_cad_survival_rate:.1f}%")
     
+    elif analysis_type == "SHTN+T2DM Analysis":
+        st.header("💔 SHTN+T2DM vs Clinical Outcomes")
+        
+        # Filter data for SHTN+T2DM analysis
+        filtered_df = df[['K/C/O', 'CLINICAL OUTCOMES']].dropna()
+        
+        # Check if both SHTN and T2DM are present in the K/C/O string
+        filtered_df['has_SHTN_T2DM'] = (filtered_df['K/C/O'].str.contains('SHTN', case=False, na=False) | 
+                                        filtered_df['K/C/O'].str.contains('T2DM', case=False, na=False))
+        
+        shtn_t2dm_group = filtered_df[filtered_df['has_SHTN_T2DM'] == True]['CLINICAL OUTCOMES']
+        no_shtn_t2dm_group = filtered_df[filtered_df['has_SHTN_T2DM'] == False]['CLINICAL OUTCOMES']
+        
+        # Create contingency table
+        shtn_t2dm_alive = len(shtn_t2dm_group[shtn_t2dm_group.str.upper() == 'ALIVE'])
+        shtn_t2dm_dead = len(shtn_t2dm_group[shtn_t2dm_group.str.upper() == 'DEAD'])
+        no_shtn_t2dm_alive = len(no_shtn_t2dm_group[no_shtn_t2dm_group.str.upper() == 'ALIVE'])
+        no_shtn_t2dm_dead = len(no_shtn_t2dm_group[no_shtn_t2dm_group.str.upper() == 'DEAD'])
+        
+        contingency_table = [[shtn_t2dm_alive, shtn_t2dm_dead], [no_shtn_t2dm_alive, no_shtn_t2dm_dead]]
+        
+        # Use Fisher's exact test if any cell has count < 5, otherwise chi-square
+        if min(shtn_t2dm_alive, shtn_t2dm_dead, no_shtn_t2dm_alive, no_shtn_t2dm_dead) < 5:
+            from scipy.stats import fisher_exact
+            odds_ratio, p_chi2 = fisher_exact(contingency_table)
+            chi2_stat = odds_ratio
+            test_name = "Fisher's Exact Test"
+        else:
+            chi2_stat, p_chi2, dof, expected = chi2_contingency(contingency_table)
+            test_name = "Chi-square Test"
+        
+        # Display test results
+        st.subheader("📊 Statistical Test Results")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric(f"{test_name} Statistic", f"{chi2_stat:.4f}")
+        with col2:
+            st.metric("P-Value", f"{p_chi2:.4f}")
+        with col3:
+            significance = "Significant" if p_chi2 < 0.05 else "Not Significant"
+            st.metric("Result", significance)
+        
+        # Contingency table display
+        st.subheader("📋 Contingency Table")
+        contingency_df = pd.DataFrame({
+            'SHTN+T2DM': [shtn_t2dm_alive, shtn_t2dm_dead],
+            'Others': [no_shtn_t2dm_alive, no_shtn_t2dm_dead]
+        }, index=['ALIVE', 'DEAD'])
+        st.dataframe(contingency_df, use_container_width=True)
+        
+        # Stacked bar chart
+        fig_bar = go.Figure()
+        fig_bar.add_trace(go.Bar(name='ALIVE', x=['SHTN+T2DM', 'Others'], y=[shtn_t2dm_alive, no_shtn_t2dm_alive], marker_color='#2E8B57'))
+        fig_bar.add_trace(go.Bar(name='DEAD', x=['SHTN+T2DM', 'Others'], y=[shtn_t2dm_dead, no_shtn_t2dm_dead], marker_color='#DC143C'))
+        fig_bar.update_layout(
+            title="Clinical Outcomes by SHTN+T2DM Status",
+            xaxis_title="Patient Group",
+            yaxis_title="Count",
+            barmode='stack'
+        )
+        st.plotly_chart(fig_bar, use_container_width=True)
+        
+        # Survival rates
+        st.subheader("📈 Survival Rates")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            shtn_t2dm_total = shtn_t2dm_alive + shtn_t2dm_dead
+            shtn_t2dm_survival_rate = (shtn_t2dm_alive / shtn_t2dm_total * 100) if shtn_t2dm_total > 0 else 0
+            st.write("**SHTN+T2DM Patients**")
+            st.write(f"Total: {shtn_t2dm_total}")
+            st.write(f"Alive: {shtn_t2dm_alive}")
+            st.write(f"Dead: {shtn_t2dm_dead}")
+            st.write(f"Survival Rate: {shtn_t2dm_survival_rate:.1f}%")
+        
+        with col2:
+            no_shtn_t2dm_total = no_shtn_t2dm_alive + no_shtn_t2dm_dead
+            no_shtn_t2dm_survival_rate = (no_shtn_t2dm_alive / no_shtn_t2dm_total * 100) if no_shtn_t2dm_total > 0 else 0
+            st.write("**Other Patients**")
+            st.write(f"Total: {no_shtn_t2dm_total}")
+            st.write(f"Alive: {no_shtn_t2dm_alive}")
+            st.write(f"Dead: {no_shtn_t2dm_dead}")
+            st.write(f"Survival Rate: {no_shtn_t2dm_survival_rate:.1f}%")
+    
+    elif analysis_type == "Unstable Hemodynamic Analysis":
+        st.header("⚠️ Unstable Hemodynamic vs Clinical Outcomes")
+        
+        # Clean vital signs data
+        df['SBP_clean'] = df['SBP'].str.extract(r'(\d+)').astype(float)
+        df['DBP_clean'] = df['DBP'].str.extract(r'(\d+)').astype(float)
+        df['SPO2_clean'] = df['SPO2%'].str.extract(r'(\d+)').astype(float)
+        df['CBG_clean'] = df['CBG'].str.extract(r'(\d+)').astype(float)
+        df['HR_clean'] = df['HR'].str.extract(r'(\d+)').astype(float)
+        
+        # Filter data for hemodynamic analysis
+        filtered_df = df[['SBP_clean', 'DBP_clean', 'SPO2_clean', 'CBG_clean', 'HR_clean', 'CLINICAL OUTCOMES']].dropna()
+        
+        # Define unstable hemodynamics criteria
+        filtered_df['unstable_hemo'] = (
+            (filtered_df['SBP_clean'] < 120) |
+            (filtered_df['DBP_clean'] < 80) |
+            (filtered_df['SPO2_clean'] < 90) |
+            (filtered_df['CBG_clean'] < 75) |
+            (filtered_df['HR_clean'] < 45)
+        )
+        
+        unstable_group = filtered_df[filtered_df['unstable_hemo'] == True]['CLINICAL OUTCOMES']
+        stable_group = filtered_df[filtered_df['unstable_hemo'] == False]['CLINICAL OUTCOMES']
+        
+        # Create contingency table
+        unstable_alive = len(unstable_group[unstable_group.str.upper() == 'ALIVE'])
+        unstable_dead = len(unstable_group[unstable_group.str.upper() == 'DEAD'])
+        stable_alive = len(stable_group[stable_group.str.upper() == 'ALIVE'])
+        stable_dead = len(stable_group[stable_group.str.upper() == 'DEAD'])
+        
+        contingency_table = [[unstable_alive, unstable_dead], [stable_alive, stable_dead]]
+        
+        # Use Fisher's exact test if any cell has count < 5, otherwise chi-square
+        if min(unstable_alive, unstable_dead, stable_alive, stable_dead) < 5:
+            from scipy.stats import fisher_exact
+            odds_ratio, p_chi2 = fisher_exact(contingency_table)
+            chi2_stat = odds_ratio
+            test_name = "Fisher's Exact Test"
+        else:
+            chi2_stat, p_chi2, dof, expected = chi2_contingency(contingency_table)
+            test_name = "Chi-square Test"
+        
+        # Display test results
+        st.subheader("📊 Statistical Test Results")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric(f"{test_name} Statistic", f"{chi2_stat:.4f}")
+        with col2:
+            st.metric("P-Value", f"{p_chi2:.4f}")
+        with col3:
+            significance = "Significant" if p_chi2 < 0.05 else "Not Significant"
+            st.metric("Result", significance)
+        
+        # Criteria display
+        st.subheader("🩺 Unstable Hemodynamic Criteria")
+        st.write("**Patients classified as unstable if ANY of the following:**")
+        st.write("• SBP < 120 mmHg")
+        st.write("• DBP < 80 mmHg")
+        st.write("• SPO2 < 90%")
+        st.write("• CBG < 75 mg/dL")
+        st.write("• HR < 45 BPM")
+        
+        # Contingency table display
+        st.subheader("📋 Contingency Table")
+        contingency_df = pd.DataFrame({
+            'Unstable Hemodynamics': [unstable_alive, unstable_dead],
+            'Stable Hemodynamics': [stable_alive, stable_dead]
+        }, index=['ALIVE', 'DEAD'])
+        st.dataframe(contingency_df, use_container_width=True)
+        
+        # Stacked bar chart
+        fig_bar = go.Figure()
+        fig_bar.add_trace(go.Bar(name='ALIVE', x=['Unstable', 'Stable'], y=[unstable_alive, stable_alive], marker_color='#2E8B57'))
+        fig_bar.add_trace(go.Bar(name='DEAD', x=['Unstable', 'Stable'], y=[unstable_dead, stable_dead], marker_color='#DC143C'))
+        fig_bar.update_layout(
+            title="Clinical Outcomes by Hemodynamic Status",
+            xaxis_title="Hemodynamic Status",
+            yaxis_title="Count",
+            barmode='stack'
+        )
+        st.plotly_chart(fig_bar, use_container_width=True)
+        
+        # Survival rates
+        st.subheader("📈 Survival Rates")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            unstable_total = unstable_alive + unstable_dead
+            unstable_survival_rate = (unstable_alive / unstable_total * 100) if unstable_total > 0 else 0
+            st.write("**Unstable Hemodynamics**")
+            st.write(f"Total: {unstable_total}")
+            st.write(f"Alive: {unstable_alive}")
+            st.write(f"Dead: {unstable_dead}")
+            st.write(f"Survival Rate: {unstable_survival_rate:.1f}%")
+        
+        with col2:
+            stable_total = stable_alive + stable_dead
+            stable_survival_rate = (stable_alive / stable_total * 100) if stable_total > 0 else 0
+            st.write("**Stable Hemodynamics**")
+            st.write(f"Total: {stable_total}")
+            st.write(f"Alive: {stable_alive}")
+            st.write(f"Dead: {stable_dead}")
+            st.write(f"Survival Rate: {stable_survival_rate:.1f}%")
+    
     elif analysis_type == "Combined Analysis":
         st.header("🔬 Combined Analysis Dashboard")
         
@@ -513,6 +702,15 @@ try:
         repeat_df = df[['REPEAT LACTATE (clean)', 'CLINICAL OUTCOMES']].dropna()
         age_df = df[['AGE', 'CLINICAL OUTCOMES']].dropna()
         cad_df = df[['K/C/O', 'CLINICAL OUTCOMES']].dropna()
+        shtn_t2dm_df = df[['K/C/O', 'CLINICAL OUTCOMES']].dropna()
+        
+        # Clean vital signs for hemodynamic analysis
+        df['SBP_clean'] = df['SBP'].str.extract(r'(\d+)').astype(float)
+        df['DBP_clean'] = df['DBP'].str.extract(r'(\d+)').astype(float)
+        df['SPO2_clean'] = df['SPO2%'].str.extract(r'(\d+)').astype(float)
+        df['CBG_clean'] = df['CBG'].str.extract(r'(\d+)').astype(float)
+        df['HR_clean'] = df['HR'].str.extract(r'(\d+)').astype(float)
+        hemo_df = df[['SBP_clean', 'DBP_clean', 'SPO2_clean', 'CBG_clean', 'HR_clean', 'CLINICAL OUTCOMES']].dropna()
         
         # Initial Lactate groups
         initial_alive = initial_df[initial_df['CLINICAL OUTCOMES'] == 'ALIVE']['INITIAL LACTATE (clean)']
@@ -552,19 +750,60 @@ try:
         else:
             chi2_stat_cad, p_val_cad, _, _ = chi2_contingency(contingency)
         
+        # SHTN+T2DM analysis
+        shtn_t2dm_df['has_SHTN_T2DM'] = (shtn_t2dm_df['K/C/O'].str.contains('SHTN', case=False, na=False) & 
+                                         shtn_t2dm_df['K/C/O'].str.contains('T2DM', case=False, na=False))
+        shtn_t2dm_group = shtn_t2dm_df[shtn_t2dm_df['has_SHTN_T2DM'] == True]['CLINICAL OUTCOMES']
+        no_shtn_t2dm_group = shtn_t2dm_df[shtn_t2dm_df['has_SHTN_T2DM'] == False]['CLINICAL OUTCOMES']
+        shtn_t2dm_alive_count = len(shtn_t2dm_group[shtn_t2dm_group.str.upper() == 'ALIVE'])
+        shtn_t2dm_dead_count = len(shtn_t2dm_group[shtn_t2dm_group.str.upper() == 'DEAD'])
+        no_shtn_t2dm_alive_count = len(no_shtn_t2dm_group[no_shtn_t2dm_group.str.upper() == 'ALIVE'])
+        no_shtn_t2dm_dead_count = len(no_shtn_t2dm_group[no_shtn_t2dm_group.str.upper() == 'DEAD'])
+        contingency_shtn_t2dm = [[shtn_t2dm_alive_count, shtn_t2dm_dead_count], [no_shtn_t2dm_alive_count, no_shtn_t2dm_dead_count]]
+        
+        if min(shtn_t2dm_alive_count, shtn_t2dm_dead_count, no_shtn_t2dm_alive_count, no_shtn_t2dm_dead_count) < 5:
+            from scipy.stats import fisher_exact
+            chi2_stat_shtn_t2dm, p_val_shtn_t2dm = fisher_exact(contingency_shtn_t2dm)
+        else:
+            chi2_stat_shtn_t2dm, p_val_shtn_t2dm, _, _ = chi2_contingency(contingency_shtn_t2dm)
+        
+        # Hemodynamic analysis
+        hemo_df['unstable_hemo'] = (
+            (hemo_df['SBP_clean'] < 120) |
+            (hemo_df['DBP_clean'] < 80) |
+            (hemo_df['SPO2_clean'] < 90) |
+            (hemo_df['CBG_clean'] < 75) |
+            (hemo_df['HR_clean'] < 45)
+        )
+        unstable_hemo_group = hemo_df[hemo_df['unstable_hemo'] == True]['CLINICAL OUTCOMES']
+        stable_hemo_group = hemo_df[hemo_df['unstable_hemo'] == False]['CLINICAL OUTCOMES']
+        unstable_hemo_alive = len(unstable_hemo_group[unstable_hemo_group.str.upper() == 'ALIVE'])
+        unstable_hemo_dead = len(unstable_hemo_group[unstable_hemo_group.str.upper() == 'DEAD'])
+        stable_hemo_alive = len(stable_hemo_group[stable_hemo_group.str.upper() == 'ALIVE'])
+        stable_hemo_dead = len(stable_hemo_group[stable_hemo_group.str.upper() == 'DEAD'])
+        contingency_hemo = [[unstable_hemo_alive, unstable_hemo_dead], [stable_hemo_alive, stable_hemo_dead]]
+        
+        if min(unstable_hemo_alive, unstable_hemo_dead, stable_hemo_alive, stable_hemo_dead) < 5:
+            from scipy.stats import fisher_exact
+            chi2_stat_hemo, p_val_hemo = fisher_exact(contingency_hemo)
+        else:
+            chi2_stat_hemo, p_val_hemo, _, _ = chi2_contingency(contingency_hemo)
+        
         # Test results table
         st.subheader("🧪 Statistical Test Results")
         results_data = {
-            'Test': ['Initial Lactate vs Outcomes', 'Lactate Clearance vs Outcomes', 'Repeat Lactate vs Outcomes', 'Age vs Outcomes', 'CAD vs Outcomes'],
-            'Test Type': ['Mann-Whitney U', 'Mann-Whitney U', 'Mann-Whitney U', 'Mann-Whitney U', 'Fisher/Chi-square'],
-            'Statistic': [u_stat_initial, u_stat_clearance, u_stat_repeat, u_stat_age, chi2_stat_cad],
-            'P-Value': [p_val_initial, p_val_clearance, p_val_repeat, p_val_age, p_val_cad],
+            'Test': ['Initial Lactate vs Outcomes', 'Lactate Clearance vs Outcomes', 'Repeat Lactate vs Outcomes', 'Age vs Outcomes', 'CAD vs Outcomes', 'SHTN+T2DM vs Outcomes', 'Unstable Hemodynamics vs Outcomes'],
+            'Test Type': ['Mann-Whitney U', 'Mann-Whitney U', 'Mann-Whitney U', 'Mann-Whitney U', 'Fisher/Chi-square', 'Fisher/Chi-square', 'Fisher/Chi-square'],
+            'Statistic': [u_stat_initial, u_stat_clearance, u_stat_repeat, u_stat_age, chi2_stat_cad, chi2_stat_shtn_t2dm, chi2_stat_hemo],
+            'P-Value': [p_val_initial, p_val_clearance, p_val_repeat, p_val_age, p_val_cad, p_val_shtn_t2dm, p_val_hemo],
             'Significant (α=0.05)': [
                 'Yes' if p_val_initial < 0.05 else 'No',
                 'Yes' if p_val_clearance < 0.05 else 'No',
                 'Yes' if p_val_repeat < 0.05 else 'No',
                 'Yes' if p_val_age < 0.05 else 'No',
-                'Yes' if p_val_cad < 0.05 else 'No'
+                'Yes' if p_val_cad < 0.05 else 'No',
+                'Yes' if p_val_shtn_t2dm < 0.05 else 'No',
+                'Yes' if p_val_hemo < 0.05 else 'No'
             ]
         }
         results_df = pd.DataFrame(results_data)
