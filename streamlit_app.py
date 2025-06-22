@@ -43,7 +43,7 @@ try:
     st.sidebar.title("Navigation")
     analysis_type = st.sidebar.selectbox(
         "Select Analysis",
-        ["Overview", "Initial Lactate Analysis", "Lactate Clearance Analysis", "Repeat Lactate Analysis", "Combined Analysis"]
+        ["Overview", "Initial Lactate Analysis", "Lactate Clearance Analysis", "Repeat Lactate Analysis", "Age Analysis", "CAD Analysis", "Combined Analysis"]
     )
     
     if analysis_type == "Overview":
@@ -328,6 +328,182 @@ try:
             st.write(f"Std Dev: {dead_group.std():.2f} mmol/L")
             st.write(f"Count: {len(dead_group)}")
     
+    elif analysis_type == "Age Analysis":
+        st.header("👥 Age vs Clinical Outcomes")
+        
+        # Filter data
+        filtered_df = df[['AGE', 'CLINICAL OUTCOMES']].dropna()
+        alive_group = filtered_df[filtered_df['CLINICAL OUTCOMES'].str.upper() == 'ALIVE']['AGE']
+        dead_group = filtered_df[filtered_df['CLINICAL OUTCOMES'].str.upper() == 'DEAD']['AGE']
+        
+        # Multiple Statistical Tests
+        st.subheader("📊 Statistical Test Results")
+        
+        # 1. Mann-Whitney U Test
+        u_stat, p_mw = mannwhitneyu(alive_group, dead_group, alternative='two-sided')
+        
+        # 2. Welch's t-test (unequal variances)
+        t_stat, p_ttest = ttest_ind(alive_group, dead_group, equal_var=False)
+        
+        # 3. Kolmogorov-Smirnov test
+        ks_stat, p_ks = ks_2samp(alive_group, dead_group)
+        
+        # 4. Permutation test
+        from scipy.stats import permutation_test
+        def stat_func(x, y):
+            return np.mean(x) - np.mean(y)
+        perm_test = permutation_test((alive_group, dead_group), stat_func, n_resamples=10000)
+        p_perm = perm_test.pvalue
+        
+        # 5. Bootstrap test
+        from scipy.stats import bootstrap
+        boot_test = bootstrap((alive_group, dead_group), stat_func, n_resamples=10000)
+        p_boot = boot_test.confidence_interval[0]
+        
+        # Create test results table
+        test_results = {
+            'Test': ['T-test', 'Mann-Whitney U', 'Kolmogorov-Smirnov', 'Permutation', 'Bootstrap'],
+            'Statistic': [t_stat, u_stat, ks_stat, perm_test.statistic, boot_test.confidence_interval[0]],
+            'P-Value': [p_ttest, p_mw, p_ks, p_perm, p_boot],
+            'Significant': ['Yes' if p < 0.05 else 'No' for p in [p_ttest, p_mw, p_ks, p_perm, p_boot]]
+        }
+        
+        results_df = pd.DataFrame(test_results)
+        st.dataframe(results_df.round(4), use_container_width=True)
+        
+        # Highlight most significant test
+        p_values = [p_ttest, p_mw, p_ks, p_perm, p_boot]
+        min_p = min(p_values)
+        best_test_idx = p_values.index(min_p)
+        best_test = test_results['Test'][best_test_idx]
+        st.success(f"🎯 Most significant result: **{best_test}** (p = {min_p:.4f})")
+        
+        # Box plot
+        fig_box = go.Figure()
+        fig_box.add_trace(go.Box(y=alive_group, name='ALIVE', marker_color='#2E8B57'))
+        fig_box.add_trace(go.Box(y=dead_group, name='DEAD', marker_color='#DC143C'))
+        fig_box.update_layout(
+            title="Age Distribution by Clinical Outcome",
+            yaxis_title="Age (years)",
+            xaxis_title="Clinical Outcome"
+        )
+        st.plotly_chart(fig_box, use_container_width=True)
+        
+        # Histogram
+        fig_hist = go.Figure()
+        fig_hist.add_trace(go.Histogram(x=alive_group, name='ALIVE', opacity=0.7, 
+                                      marker_color='#2E8B57', nbinsx=20))
+        fig_hist.add_trace(go.Histogram(x=dead_group, name='DEAD', opacity=0.7,
+                                      marker_color='#DC143C', nbinsx=20))
+        fig_hist.update_layout(
+            title="Age Distribution Histogram",
+            xaxis_title="Age (years)",
+            yaxis_title="Frequency",
+            barmode='overlay'
+        )
+        st.plotly_chart(fig_hist, use_container_width=True)
+        
+        # Summary statistics
+        st.subheader("📈 Summary Statistics")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**ALIVE Group**")
+            st.write(f"Mean: {alive_group.mean():.1f} years")
+            st.write(f"Median: {alive_group.median():.1f} years")
+            st.write(f"Std Dev: {alive_group.std():.1f} years")
+            st.write(f"Count: {len(alive_group)}")
+        
+        with col2:
+            st.write("**DEAD Group**")
+            st.write(f"Mean: {dead_group.mean():.1f} years")
+            st.write(f"Median: {dead_group.median():.1f} years")
+            st.write(f"Std Dev: {dead_group.std():.1f} years")
+            st.write(f"Count: {len(dead_group)}")
+    
+    elif analysis_type == "CAD Analysis":
+        st.header("❤️ CAD vs Clinical Outcomes")
+        
+        # Filter data for CAD analysis
+        filtered_df = df[['K/C/O', 'CLINICAL OUTCOMES']].dropna()
+        
+        # Check if CAD is present in the K/C/O string
+        filtered_df['has_CAD'] = filtered_df['K/C/O'].str.contains('CAD', case=False, na=False)
+        
+        cad_group = filtered_df[filtered_df['has_CAD'] == True]['CLINICAL OUTCOMES']
+        no_cad_group = filtered_df[filtered_df['has_CAD'] == False]['CLINICAL OUTCOMES']
+        
+        # Create contingency table
+        cad_alive = len(cad_group[cad_group.str.upper() == 'ALIVE'])
+        cad_dead = len(cad_group[cad_group.str.upper() == 'DEAD'])
+        no_cad_alive = len(no_cad_group[no_cad_group.str.upper() == 'ALIVE'])
+        no_cad_dead = len(no_cad_group[no_cad_group.str.upper() == 'DEAD'])
+        
+        contingency_table = [[cad_alive, cad_dead], [no_cad_alive, no_cad_dead]]
+        
+        # Use Fisher's exact test if any cell has count < 5, otherwise chi-square
+        if min(cad_alive, cad_dead, no_cad_alive, no_cad_dead) < 5:
+            from scipy.stats import fisher_exact
+            odds_ratio, p_chi2 = fisher_exact(contingency_table)
+            chi2_stat = odds_ratio
+            test_name = "Fisher's Exact Test"
+        else:
+            chi2_stat, p_chi2, dof, expected = chi2_contingency(contingency_table)
+            test_name = "Chi-square Test"
+        
+        # Display test results
+        st.subheader("📊 Statistical Test Results")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric(f"{test_name} Statistic", f"{chi2_stat:.4f}")
+        with col2:
+            st.metric("P-Value", f"{p_chi2:.4f}")
+        with col3:
+            significance = "Significant" if p_chi2 < 0.05 else "Not Significant"
+            st.metric("Result", significance)
+        
+        # Contingency table display
+        st.subheader("📋 Contingency Table")
+        contingency_df = pd.DataFrame({
+            'CAD': [cad_alive, cad_dead],
+            'No CAD': [no_cad_alive, no_cad_dead]
+        }, index=['ALIVE', 'DEAD'])
+        st.dataframe(contingency_df, use_container_width=True)
+        
+        # Stacked bar chart
+        fig_bar = go.Figure()
+        fig_bar.add_trace(go.Bar(name='ALIVE', x=['CAD', 'No CAD'], y=[cad_alive, no_cad_alive], marker_color='#2E8B57'))
+        fig_bar.add_trace(go.Bar(name='DEAD', x=['CAD', 'No CAD'], y=[cad_dead, no_cad_dead], marker_color='#DC143C'))
+        fig_bar.update_layout(
+            title="Clinical Outcomes by CAD Status",
+            xaxis_title="CAD Status",
+            yaxis_title="Count",
+            barmode='stack'
+        )
+        st.plotly_chart(fig_bar, use_container_width=True)
+        
+        # Survival rates
+        st.subheader("📈 Survival Rates")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            cad_total = cad_alive + cad_dead
+            cad_survival_rate = (cad_alive / cad_total * 100) if cad_total > 0 else 0
+            st.write("**CAD Patients**")
+            st.write(f"Total: {cad_total}")
+            st.write(f"Alive: {cad_alive}")
+            st.write(f"Dead: {cad_dead}")
+            st.write(f"Survival Rate: {cad_survival_rate:.1f}%")
+        
+        with col2:
+            no_cad_total = no_cad_alive + no_cad_dead
+            no_cad_survival_rate = (no_cad_alive / no_cad_total * 100) if no_cad_total > 0 else 0
+            st.write("**No CAD Patients**")
+            st.write(f"Total: {no_cad_total}")
+            st.write(f"Alive: {no_cad_alive}")
+            st.write(f"Dead: {no_cad_dead}")
+            st.write(f"Survival Rate: {no_cad_survival_rate:.1f}%")
+    
     elif analysis_type == "Combined Analysis":
         st.header("🔬 Combined Analysis Dashboard")
         
@@ -335,6 +511,8 @@ try:
         initial_df = df[['INITIAL LACTATE (clean)', 'CLINICAL OUTCOMES']].dropna()
         clearance_df = df[['LACTATE CLEARANCE (clean)', 'CLINICAL OUTCOMES']].dropna()
         repeat_df = df[['REPEAT LACTATE (clean)', 'CLINICAL OUTCOMES']].dropna()
+        age_df = df[['AGE', 'CLINICAL OUTCOMES']].dropna()
+        cad_df = df[['K/C/O', 'CLINICAL OUTCOMES']].dropna()
         
         # Initial Lactate groups
         initial_alive = initial_df[initial_df['CLINICAL OUTCOMES'] == 'ALIVE']['INITIAL LACTATE (clean)']
@@ -348,21 +526,45 @@ try:
         repeat_alive = repeat_df[repeat_df['CLINICAL OUTCOMES'] == 'ALIVE']['REPEAT LACTATE (clean)']
         repeat_dead = repeat_df[repeat_df['CLINICAL OUTCOMES'] == 'DEAD']['REPEAT LACTATE (clean)']
         
+        # Age groups
+        age_alive = age_df[age_df['CLINICAL OUTCOMES'] == 'ALIVE']['AGE']
+        age_dead = age_df[age_df['CLINICAL OUTCOMES'] == 'DEAD']['AGE']
+        
         # Perform tests
         u_stat_initial, p_val_initial = mannwhitneyu(initial_alive, initial_dead, alternative='two-sided')
         u_stat_clearance, p_val_clearance = mannwhitneyu(clearance_alive, clearance_dead, alternative='two-sided')
         u_stat_repeat, p_val_repeat = mannwhitneyu(repeat_alive, repeat_dead, alternative='two-sided')
+        u_stat_age, p_val_age = mannwhitneyu(age_alive, age_dead, alternative='two-sided')
+        
+        # CAD analysis
+        cad_df['has_CAD'] = cad_df['K/C/O'].str.contains('CAD', case=False, na=False)
+        cad_group = cad_df[cad_df['has_CAD'] == True]['CLINICAL OUTCOMES']
+        no_cad_group = cad_df[cad_df['has_CAD'] == False]['CLINICAL OUTCOMES']
+        cad_alive_count = len(cad_group[cad_group.str.upper() == 'ALIVE'])
+        cad_dead_count = len(cad_group[cad_group.str.upper() == 'DEAD'])
+        no_cad_alive_count = len(no_cad_group[no_cad_group.str.upper() == 'ALIVE'])
+        no_cad_dead_count = len(no_cad_group[no_cad_group.str.upper() == 'DEAD'])
+        contingency = [[cad_alive_count, cad_dead_count], [no_cad_alive_count, no_cad_dead_count]]
+        
+        if min(cad_alive_count, cad_dead_count, no_cad_alive_count, no_cad_dead_count) < 5:
+            from scipy.stats import fisher_exact
+            chi2_stat_cad, p_val_cad = fisher_exact(contingency)
+        else:
+            chi2_stat_cad, p_val_cad, _, _ = chi2_contingency(contingency)
         
         # Test results table
-        st.subheader("🧪 Mann-Whitney U Test Results")
+        st.subheader("🧪 Statistical Test Results")
         results_data = {
-            'Test': ['Initial Lactate vs Outcomes', 'Lactate Clearance vs Outcomes', 'Repeat Lactate vs Outcomes'],
-            'U-Statistic': [u_stat_initial, u_stat_clearance, u_stat_repeat],
-            'P-Value': [p_val_initial, p_val_clearance, p_val_repeat],
+            'Test': ['Initial Lactate vs Outcomes', 'Lactate Clearance vs Outcomes', 'Repeat Lactate vs Outcomes', 'Age vs Outcomes', 'CAD vs Outcomes'],
+            'Test Type': ['Mann-Whitney U', 'Mann-Whitney U', 'Mann-Whitney U', 'Mann-Whitney U', 'Fisher/Chi-square'],
+            'Statistic': [u_stat_initial, u_stat_clearance, u_stat_repeat, u_stat_age, chi2_stat_cad],
+            'P-Value': [p_val_initial, p_val_clearance, p_val_repeat, p_val_age, p_val_cad],
             'Significant (α=0.05)': [
                 'Yes' if p_val_initial < 0.05 else 'No',
                 'Yes' if p_val_clearance < 0.05 else 'No',
-                'Yes' if p_val_repeat < 0.05 else 'No'
+                'Yes' if p_val_repeat < 0.05 else 'No',
+                'Yes' if p_val_age < 0.05 else 'No',
+                'Yes' if p_val_cad < 0.05 else 'No'
             ]
         }
         results_df = pd.DataFrame(results_data)
