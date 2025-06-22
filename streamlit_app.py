@@ -31,6 +31,9 @@ def load_data():
     # Clean LACTATE CLEARANCE column (matching your approach)
     df['LACTATE CLEARANCE (clean)'] = df['LACTATE CLEARANCE'].str.extract(r'([\d.]+)').astype(float)
     
+    # Clean REPEAT LACTATE column
+    df['REPEAT LACTATE (clean)'] = df['REPEAT LACTATE'].str.extract(r'([\d.]+)').astype(float)
+    
     return df
 
 try:
@@ -40,7 +43,7 @@ try:
     st.sidebar.title("Navigation")
     analysis_type = st.sidebar.selectbox(
         "Select Analysis",
-        ["Overview", "Initial Lactate Analysis", "Lactate Clearance Analysis", "Combined Analysis"]
+        ["Overview", "Initial Lactate Analysis", "Lactate Clearance Analysis", "Repeat Lactate Analysis", "Combined Analysis"]
     )
     
     if analysis_type == "Overview":
@@ -232,12 +235,106 @@ try:
             st.write(f"Std Dev: {dead_group.std():.2f}%")
             st.write(f"Count: {len(dead_group)}")
     
+    elif analysis_type == "Repeat Lactate Analysis":
+        st.header("🔁 Repeat Lactate vs Clinical Outcomes")
+        
+        # Filter data
+        filtered_df = df[['REPEAT LACTATE (clean)', 'CLINICAL OUTCOMES']].dropna()
+        alive_group = filtered_df[filtered_df['CLINICAL OUTCOMES'].str.upper() == 'ALIVE']['REPEAT LACTATE (clean)']
+        dead_group = filtered_df[filtered_df['CLINICAL OUTCOMES'].str.upper() == 'DEAD']['REPEAT LACTATE (clean)']
+        
+        # Multiple Statistical Tests
+        st.subheader("📊 Statistical Test Results")
+        
+        # 1. Mann-Whitney U Test
+        u_stat, p_mw = mannwhitneyu(alive_group, dead_group, alternative='two-sided')
+        
+        # 2. Welch's t-test (unequal variances)
+        t_stat, p_ttest = ttest_ind(alive_group, dead_group, equal_var=False)
+        
+        # 3. Kolmogorov-Smirnov test
+        ks_stat, p_ks = ks_2samp(alive_group, dead_group)
+        
+        # 4. Permutation test
+        from scipy.stats import permutation_test
+        def stat_func(x, y):
+            return np.mean(x) - np.mean(y)
+        perm_test = permutation_test((alive_group, dead_group), stat_func, n_resamples=10000)
+        p_perm = perm_test.pvalue
+        
+        # 5. Bootstrap test
+        from scipy.stats import bootstrap
+        boot_test = bootstrap((alive_group, dead_group), stat_func, n_resamples=10000)
+        p_boot = boot_test.confidence_interval[0]
+        
+        # Create test results table
+        test_results = {
+            'Test': ['T-test', 'Mann-Whitney U', 'Kolmogorov-Smirnov', 'Permutation', 'Bootstrap'],
+            'Statistic': [t_stat, u_stat, ks_stat, perm_test.statistic, boot_test.confidence_interval[0]],
+            'P-Value': [p_ttest, p_mw, p_ks, p_perm, p_boot],
+            'Significant': ['Yes' if p < 0.05 else 'No' for p in [p_ttest, p_mw, p_ks, p_perm, p_boot]]
+        }
+        
+        results_df = pd.DataFrame(test_results)
+        st.dataframe(results_df.round(4), use_container_width=True)
+        
+        # Highlight most significant test
+        p_values = [p_ttest, p_mw, p_ks, p_perm, p_boot]
+        min_p = min(p_values)
+        best_test_idx = p_values.index(min_p)
+        best_test = test_results['Test'][best_test_idx]
+        st.success(f"🎯 Most significant result: **{best_test}** (p = {min_p:.4f})")
+        
+        # Box plot
+        fig_box = go.Figure()
+        fig_box.add_trace(go.Box(y=alive_group, name='ALIVE', marker_color='#2E8B57'))
+        fig_box.add_trace(go.Box(y=dead_group, name='DEAD', marker_color='#DC143C'))
+        fig_box.update_layout(
+            title="Repeat Lactate Distribution by Clinical Outcome",
+            yaxis_title="Repeat Lactate (mmol/L)",
+            xaxis_title="Clinical Outcome"
+        )
+        st.plotly_chart(fig_box, use_container_width=True)
+        
+        # Histogram
+        fig_hist = go.Figure()
+        fig_hist.add_trace(go.Histogram(x=alive_group, name='ALIVE', opacity=0.7, 
+                                      marker_color='#2E8B57', nbinsx=20))
+        fig_hist.add_trace(go.Histogram(x=dead_group, name='DEAD', opacity=0.7,
+                                      marker_color='#DC143C', nbinsx=20))
+        fig_hist.update_layout(
+            title="Repeat Lactate Distribution Histogram",
+            xaxis_title="Repeat Lactate (mmol/L)",
+            yaxis_title="Frequency",
+            barmode='overlay'
+        )
+        st.plotly_chart(fig_hist, use_container_width=True)
+        
+        # Summary statistics
+        st.subheader("📈 Summary Statistics")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**ALIVE Group**")
+            st.write(f"Mean: {alive_group.mean():.2f} mmol/L")
+            st.write(f"Median: {alive_group.median():.2f} mmol/L")
+            st.write(f"Std Dev: {alive_group.std():.2f} mmol/L")
+            st.write(f"Count: {len(alive_group)}")
+        
+        with col2:
+            st.write("**DEAD Group**")
+            st.write(f"Mean: {dead_group.mean():.2f} mmol/L")
+            st.write(f"Median: {dead_group.median():.2f} mmol/L")
+            st.write(f"Std Dev: {dead_group.std():.2f} mmol/L")
+            st.write(f"Count: {len(dead_group)}")
+    
     elif analysis_type == "Combined Analysis":
         st.header("🔬 Combined Analysis Dashboard")
         
-        # Prepare data for both tests
+        # Prepare data for all tests
         initial_df = df[['INITIAL LACTATE (clean)', 'CLINICAL OUTCOMES']].dropna()
         clearance_df = df[['LACTATE CLEARANCE (clean)', 'CLINICAL OUTCOMES']].dropna()
+        repeat_df = df[['REPEAT LACTATE (clean)', 'CLINICAL OUTCOMES']].dropna()
         
         # Initial Lactate groups
         initial_alive = initial_df[initial_df['CLINICAL OUTCOMES'] == 'ALIVE']['INITIAL LACTATE (clean)']
@@ -247,19 +344,25 @@ try:
         clearance_alive = clearance_df[clearance_df['CLINICAL OUTCOMES'] == 'ALIVE']['LACTATE CLEARANCE (clean)']
         clearance_dead = clearance_df[clearance_df['CLINICAL OUTCOMES'] == 'DEAD']['LACTATE CLEARANCE (clean)']
         
+        # Repeat lactate groups
+        repeat_alive = repeat_df[repeat_df['CLINICAL OUTCOMES'] == 'ALIVE']['REPEAT LACTATE (clean)']
+        repeat_dead = repeat_df[repeat_df['CLINICAL OUTCOMES'] == 'DEAD']['REPEAT LACTATE (clean)']
+        
         # Perform tests
         u_stat_initial, p_val_initial = mannwhitneyu(initial_alive, initial_dead, alternative='two-sided')
         u_stat_clearance, p_val_clearance = mannwhitneyu(clearance_alive, clearance_dead, alternative='two-sided')
+        u_stat_repeat, p_val_repeat = mannwhitneyu(repeat_alive, repeat_dead, alternative='two-sided')
         
         # Test results table
         st.subheader("🧪 Mann-Whitney U Test Results")
         results_data = {
-            'Test': ['Initial Lactate vs Outcomes', 'Lactate Clearance vs Outcomes'],
-            'U-Statistic': [u_stat_initial, u_stat_clearance],
-            'P-Value': [p_val_initial, p_val_clearance],
+            'Test': ['Initial Lactate vs Outcomes', 'Lactate Clearance vs Outcomes', 'Repeat Lactate vs Outcomes'],
+            'U-Statistic': [u_stat_initial, u_stat_clearance, u_stat_repeat],
+            'P-Value': [p_val_initial, p_val_clearance, p_val_repeat],
             'Significant (α=0.05)': [
                 'Yes' if p_val_initial < 0.05 else 'No',
-                'Yes' if p_val_clearance < 0.05 else 'No'
+                'Yes' if p_val_clearance < 0.05 else 'No',
+                'Yes' if p_val_repeat < 0.05 else 'No'
             ]
         }
         results_df = pd.DataFrame(results_data)
