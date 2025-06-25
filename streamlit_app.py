@@ -247,16 +247,19 @@ try:
             st.write("**Age Group Distribution Table**")
             st.dataframe(age_group_df, use_container_width=True, hide_index=True)
 
-        # Age distribution histogram
-        fig_age = px.histogram(
-            df,
-            x="AGE",
+        # Age distribution bar chart by groups
+        age_outcome_df = df.groupby(['Age_Group', 'CLINICAL OUTCOMES']).size().reset_index(name='Count')
+        
+        fig_age_bar = px.bar(
+            age_outcome_df,
+            x="Age_Group",
+            y="Count",
             color="CLINICAL OUTCOMES",
-            title="Age Distribution by Clinical Outcome",
-            nbins=20,
+            title="Age Group Distribution by Clinical Outcome",
             color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
+            barmode="group"
         )
-        st.plotly_chart(fig_age, use_container_width=True)
+        st.plotly_chart(fig_age_bar, use_container_width=True)
 
     elif analysis_type == "Initial Lactate Analysis":
         st.header("🧪 Initial Lactate vs Clinical Outcomes")
@@ -283,42 +286,38 @@ try:
             significance = "Significant" if p_value < 0.05 else "Not Significant"
             st.metric("Result", significance)
 
-        # Box plot
-        fig_box = go.Figure()
-        fig_box.add_trace(go.Box(y=alive_group, name="ALIVE", marker_color="#2E8B57"))
-        fig_box.add_trace(go.Box(y=dead_group, name="DEAD", marker_color="#DC143C"))
-        fig_box.update_layout(
-            title="Initial Lactate Distribution by Clinical Outcome",
-            yaxis_title="Initial Lactate (mmol/L)",
+        # Bar chart comparing mean values
+        mean_alive = alive_group.mean()
+        mean_dead = dead_group.mean()
+        
+        fig_bar = go.Figure()
+        fig_bar.add_trace(
+            go.Bar(
+                x=["ALIVE", "DEAD"],
+                y=[mean_alive, mean_dead],
+                marker_color=["#2E8B57", "#DC143C"],
+                name="Mean Initial Lactate"
+            )
+        )
+        fig_bar.update_layout(
+            title="Mean Initial Lactate by Clinical Outcome",
+            yaxis_title="Mean Initial Lactate (mmol/L)",
             xaxis_title="Clinical Outcome",
         )
-        st.plotly_chart(fig_box, use_container_width=True)
+        st.plotly_chart(fig_bar, use_container_width=True)
 
-        # Violin plot
-        fig_violin = go.Figure()
-        fig_violin.add_trace(
-            go.Violin(
-                y=alive_group,
-                name="ALIVE",
-                box_visible=True,
-                line_color="#2E8B57",
-                fillcolor="rgba(46,139,87,0.5)",
-            )
+        # Pie chart showing distribution of high vs low lactate
+        lactate_threshold = filtered_df["INITIAL LACTATE (clean)"].median()
+        high_lactate = len(filtered_df[filtered_df["INITIAL LACTATE (clean)"] > lactate_threshold])
+        low_lactate = len(filtered_df[filtered_df["INITIAL LACTATE (clean)"] <= lactate_threshold])
+        
+        fig_pie = px.pie(
+            values=[high_lactate, low_lactate],
+            names=[f"High (>{lactate_threshold:.1f})", f"Low (≤{lactate_threshold:.1f})"],
+            title="Initial Lactate Distribution (High vs Low)",
+            color_discrete_sequence=["#FF6B6B", "#4ECDC4"]
         )
-        fig_violin.add_trace(
-            go.Violin(
-                y=dead_group,
-                name="DEAD",
-                box_visible=True,
-                line_color="#DC143C",
-                fillcolor="rgba(220,20,60,0.5)",
-            )
-        )
-        fig_violin.update_layout(
-            title="Initial Lactate Distribution (Violin Plot)",
-            yaxis_title="Initial Lactate (mmol/L)",
-        )
-        st.plotly_chart(fig_violin, use_container_width=True)
+        st.plotly_chart(fig_pie, use_container_width=True)
 
         # Summary statistics
         st.subheader("📈 Summary Statistics")
@@ -412,44 +411,48 @@ try:
         best_test = test_results["Test"][best_test_idx]
         st.success(f"🎯 Most significant result: **{best_test}** (p = {min_p:.4f})")
 
-        # Box plot
-        fig_box = go.Figure()
-        fig_box.add_trace(go.Box(y=alive_group, name="ALIVE", marker_color="#2E8B57"))
-        fig_box.add_trace(go.Box(y=dead_group, name="DEAD", marker_color="#DC143C"))
-        fig_box.update_layout(
-            title="Lactate Clearance Distribution by Clinical Outcome",
-            yaxis_title="Lactate Clearance (%)",
-            xaxis_title="Clinical Outcome",
-        )
-        st.plotly_chart(fig_box, use_container_width=True)
-
-        # Histogram
-        fig_hist = go.Figure()
-        fig_hist.add_trace(
-            go.Histogram(
-                x=alive_group,
+        # Double bar chart comparing statistics
+        mean_alive = alive_group.mean()
+        mean_dead = dead_group.mean()
+        median_alive = alive_group.median()
+        median_dead = dead_group.median()
+        
+        fig_double_bar = go.Figure()
+        fig_double_bar.add_trace(
+            go.Bar(
                 name="ALIVE",
-                opacity=0.9,
-                marker_color="#2E8B57",
-                nbinsx=20,
+                x=["Mean", "Median"],
+                y=[mean_alive, median_alive],
+                marker_color="#2E8B57"
             )
         )
-        fig_hist.add_trace(
-            go.Histogram(
-                x=dead_group,
+        fig_double_bar.add_trace(
+            go.Bar(
                 name="DEAD",
-                opacity=0.9,
-                marker_color="#DC143C",
-                nbinsx=20,
+                x=["Mean", "Median"],
+                y=[mean_dead, median_dead],
+                marker_color="#DC143C"
             )
         )
-        fig_hist.update_layout(
-            title="Lactate Clearance Distribution Histogram",
-            xaxis_title="Lactate Clearance (%)",
-            yaxis_title="Frequency",
-            barmode="overlay",
+        fig_double_bar.update_layout(
+            title="Lactate Clearance Statistics by Clinical Outcome",
+            yaxis_title="Lactate Clearance (%)",
+            xaxis_title="Statistic",
+            barmode="group"
         )
-        st.plotly_chart(fig_hist, use_container_width=True)
+        st.plotly_chart(fig_double_bar, use_container_width=True)
+
+        # Pie chart showing clearance categories
+        good_clearance = len(filtered_df[filtered_df["LACTATE CLEARANCE (clean)"] >= 20])
+        poor_clearance = len(filtered_df[filtered_df["LACTATE CLEARANCE (clean)"] < 20])
+        
+        fig_pie = px.pie(
+            values=[good_clearance, poor_clearance],
+            names=["Good Clearance (≥20%)", "Poor Clearance (<20%)"],
+            title="Lactate Clearance Categories",
+            color_discrete_sequence=["#2E8B57", "#DC143C"]
+        )
+        st.plotly_chart(fig_pie, use_container_width=True)
 
         # Summary statistics
         st.subheader("📈 Summary Statistics")
@@ -543,44 +546,49 @@ try:
         best_test = test_results["Test"][best_test_idx]
         st.success(f"🎯 Most significant result: **{best_test}** (p = {min_p:.4f})")
 
-        # Box plot
-        fig_box = go.Figure()
-        fig_box.add_trace(go.Box(y=alive_group, name="ALIVE", marker_color="#2E8B57"))
-        fig_box.add_trace(go.Box(y=dead_group, name="DEAD", marker_color="#DC143C"))
-        fig_box.update_layout(
-            title="Repeat Lactate Distribution by Clinical Outcome",
-            yaxis_title="Repeat Lactate (mmol/L)",
-            xaxis_title="Clinical Outcome",
-        )
-        st.plotly_chart(fig_box, use_container_width=True)
-
-        # Histogram
-        fig_hist = go.Figure()
-        fig_hist.add_trace(
-            go.Histogram(
-                x=alive_group,
+        # Bar chart comparing mean and median values
+        mean_alive = alive_group.mean()
+        mean_dead = dead_group.mean()
+        median_alive = alive_group.median()
+        median_dead = dead_group.median()
+        
+        fig_double_bar = go.Figure()
+        fig_double_bar.add_trace(
+            go.Bar(
                 name="ALIVE",
-                opacity=0.9,
-                marker_color="#2E8B57",
-                nbinsx=20,
+                x=["Mean", "Median"],
+                y=[mean_alive, median_alive],
+                marker_color="#2E8B57"
             )
         )
-        fig_hist.add_trace(
-            go.Histogram(
-                x=dead_group,
+        fig_double_bar.add_trace(
+            go.Bar(
                 name="DEAD",
-                opacity=0.9,
-                marker_color="#DC143C",
-                nbinsx=20,
+                x=["Mean", "Median"],
+                y=[mean_dead, median_dead],
+                marker_color="#DC143C"
             )
         )
-        fig_hist.update_layout(
-            title="Repeat Lactate Distribution Histogram",
-            xaxis_title="Repeat Lactate (mmol/L)",
-            yaxis_title="Frequency",
-            barmode="overlay",
+        fig_double_bar.update_layout(
+            title="Repeat Lactate Statistics by Clinical Outcome",
+            yaxis_title="Repeat Lactate (mmol/L)",
+            xaxis_title="Statistic",
+            barmode="group"
         )
-        st.plotly_chart(fig_hist, use_container_width=True)
+        st.plotly_chart(fig_double_bar, use_container_width=True)
+
+        # Pie chart showing normal vs elevated repeat lactate
+        normal_threshold = 2.0  # Normal lactate threshold
+        normal_lactate = len(filtered_df[filtered_df["REPEAT LACTATE (clean)"] <= normal_threshold])
+        elevated_lactate = len(filtered_df[filtered_df["REPEAT LACTATE (clean)"] > normal_threshold])
+        
+        fig_pie = px.pie(
+            values=[normal_lactate, elevated_lactate],
+            names=[f"Normal (≤{normal_threshold})", f"Elevated (>{normal_threshold})"],
+            title="Repeat Lactate Categories",
+            color_discrete_sequence=["#4ECDC4", "#FF6B6B"]
+        )
+        st.plotly_chart(fig_pie, use_container_width=True)
 
         # Summary statistics
         st.subheader("📈 Summary Statistics")
@@ -674,44 +682,65 @@ try:
         best_test = test_results["Test"][best_test_idx]
         st.success(f"🎯 Most significant result: **{best_test}** (p = {min_p:.4f})")
 
-        # Box plot
-        fig_box = go.Figure()
-        fig_box.add_trace(go.Box(y=alive_group, name="ALIVE", marker_color="#2E8B57"))
-        fig_box.add_trace(go.Box(y=dead_group, name="DEAD", marker_color="#DC143C"))
-        fig_box.update_layout(
-            title="Age Distribution by Clinical Outcome",
-            yaxis_title="Age (years)",
-            xaxis_title="Clinical Outcome",
-        )
-        st.plotly_chart(fig_box, use_container_width=True)
-
-        # Histogram
-        fig_hist = go.Figure()
-        fig_hist.add_trace(
-            go.Histogram(
-                x=alive_group,
+        # Double bar chart comparing age statistics
+        mean_alive = alive_group.mean()
+        mean_dead = dead_group.mean()
+        median_alive = alive_group.median()
+        median_dead = dead_group.median()
+        
+        fig_double_bar = go.Figure()
+        fig_double_bar.add_trace(
+            go.Bar(
                 name="ALIVE",
-                opacity=0.9,
-                marker_color="#2E8B57",
-                nbinsx=20,
+                x=["Mean Age", "Median Age"],
+                y=[mean_alive, median_alive],
+                marker_color="#2E8B57"
             )
         )
-        fig_hist.add_trace(
-            go.Histogram(
-                x=dead_group,
+        fig_double_bar.add_trace(
+            go.Bar(
                 name="DEAD",
-                opacity=0.9,
-                marker_color="#DC143C",
-                nbinsx=20,
+                x=["Mean Age", "Median Age"],
+                y=[mean_dead, median_dead],
+                marker_color="#DC143C"
             )
         )
-        fig_hist.update_layout(
-            title="Age Distribution Histogram",
-            xaxis_title="Age (years)",
-            yaxis_title="Frequency",
-            barmode="overlay",
+        fig_double_bar.update_layout(
+            title="Age Statistics by Clinical Outcome",
+            yaxis_title="Age (years)",
+            xaxis_title="Statistic",
+            barmode="group"
         )
-        st.plotly_chart(fig_hist, use_container_width=True)
+        st.plotly_chart(fig_double_bar, use_container_width=True)
+
+        # Pie chart showing age group distribution for outcomes
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Age groups for ALIVE patients
+            alive_age_groups = pd.cut(alive_group, bins=[0, 50, 65, 100], labels=["<50", "50-65", ">65"])
+            alive_counts = alive_age_groups.value_counts()
+            
+            fig_pie_alive = px.pie(
+                values=alive_counts.values,
+                names=alive_counts.index,
+                title="Age Groups - ALIVE Patients",
+                color_discrete_sequence=["#90EE90", "#32CD32", "#228B22"]
+            )
+            st.plotly_chart(fig_pie_alive, use_container_width=True)
+        
+        with col2:
+            # Age groups for DEAD patients
+            dead_age_groups = pd.cut(dead_group, bins=[0, 50, 65, 100], labels=["<50", "50-65", ">65"])
+            dead_counts = dead_age_groups.value_counts()
+            
+            fig_pie_dead = px.pie(
+                values=dead_counts.values,
+                names=dead_counts.index,
+                title="Age Groups - DEAD Patients",
+                color_discrete_sequence=["#FFB6C1", "#FF69B4", "#DC143C"]
+            )
+            st.plotly_chart(fig_pie_dead, use_container_width=True)
 
         # Summary statistics
         st.subheader("📈 Summary Statistics")
@@ -783,7 +812,7 @@ try:
         )
         st.dataframe(contingency_df, use_container_width=True)
 
-        # Stacked bar chart
+        # Double bar chart (grouped)
         fig_bar = go.Figure()
         fig_bar.add_trace(
             go.Bar(
@@ -805,9 +834,29 @@ try:
             title="Clinical Outcomes by CAD Status",
             xaxis_title="CAD Status",
             yaxis_title="Count",
-            barmode="stack",
+            barmode="group",
         )
         st.plotly_chart(fig_bar, use_container_width=True)
+        
+        # Pie chart showing CAD distribution
+        col1, col2 = st.columns(2)
+        with col1:
+            fig_pie_cad = px.pie(
+                values=[cad_alive + cad_dead, no_cad_alive + no_cad_dead],
+                names=["CAD Patients", "No CAD Patients"],
+                title="CAD Distribution",
+                color_discrete_sequence=["#FF6B6B", "#4ECDC4"]
+            )
+            st.plotly_chart(fig_pie_cad, use_container_width=True)
+        
+        with col2:
+            fig_pie_outcome = px.pie(
+                values=[cad_alive + no_cad_alive, cad_dead + no_cad_dead],
+                names=["ALIVE", "DEAD"],
+                title="Overall Outcomes",
+                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}
+            )
+            st.plotly_chart(fig_pie_outcome, use_container_width=True)
 
         # Survival rates
         st.subheader("📈 Survival Rates")
@@ -902,7 +951,7 @@ try:
         )
         st.dataframe(contingency_df, use_container_width=True)
 
-        # Stacked bar chart
+        # Double bar chart (grouped)
         fig_bar = go.Figure()
         fig_bar.add_trace(
             go.Bar(
@@ -924,9 +973,29 @@ try:
             title="Clinical Outcomes by SHTN+T2DM Status",
             xaxis_title="Patient Group",
             yaxis_title="Count",
-            barmode="stack",
+            barmode="group",
         )
         st.plotly_chart(fig_bar, use_container_width=True)
+        
+        # Pie chart showing SHTN+T2DM distribution
+        col1, col2 = st.columns(2)
+        with col1:
+            fig_pie_shtn = px.pie(
+                values=[shtn_t2dm_alive + shtn_t2dm_dead, no_shtn_t2dm_alive + no_shtn_t2dm_dead],
+                names=["SHTN+T2DM", "Others"],
+                title="SHTN+T2DM Distribution",
+                color_discrete_sequence=["#FFD93D", "#96CEB4"]
+            )
+            st.plotly_chart(fig_pie_shtn, use_container_width=True)
+        
+        with col2:
+            fig_pie_outcome = px.pie(
+                values=[shtn_t2dm_alive + no_shtn_t2dm_alive, shtn_t2dm_dead + no_shtn_t2dm_dead],
+                names=["ALIVE", "DEAD"],
+                title="Overall Outcomes",
+                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}
+            )
+            st.plotly_chart(fig_pie_outcome, use_container_width=True)
 
         # Survival rates
         st.subheader("📈 Survival Rates")
@@ -1047,7 +1116,7 @@ try:
         )
         st.dataframe(contingency_df, use_container_width=True)
 
-        # Stacked bar chart
+        # Double bar chart (grouped)
         fig_bar = go.Figure()
         fig_bar.add_trace(
             go.Bar(
@@ -1069,9 +1138,29 @@ try:
             title="Clinical Outcomes by Hemodynamic Status",
             xaxis_title="Hemodynamic Status",
             yaxis_title="Count",
-            barmode="stack",
+            barmode="group",
         )
         st.plotly_chart(fig_bar, use_container_width=True)
+        
+        # Pie chart showing hemodynamic status distribution
+        col1, col2 = st.columns(2)
+        with col1:
+            fig_pie_hemo = px.pie(
+                values=[unstable_alive + unstable_dead, stable_alive + stable_dead],
+                names=["Unstable Hemodynamics", "Stable Hemodynamics"],
+                title="Hemodynamic Status Distribution",
+                color_discrete_sequence=["#FF6B6B", "#4ECDC4"]
+            )
+            st.plotly_chart(fig_pie_hemo, use_container_width=True)
+        
+        with col2:
+            fig_pie_outcome = px.pie(
+                values=[unstable_alive + stable_alive, unstable_dead + stable_dead],
+                names=["ALIVE", "DEAD"],
+                title="Overall Outcomes",
+                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}
+            )
+            st.plotly_chart(fig_pie_outcome, use_container_width=True)
 
         # Survival rates
         st.subheader("📈 Survival Rates")
@@ -1338,40 +1427,46 @@ try:
         col1, col2 = st.columns(2)
 
         with col1:
-            # Initial Lactate scatter plot
-            fig_scatter1 = px.scatter(
-                initial_df,
-                x="CLINICAL OUTCOMES",
-                y="INITIAL LACTATE (clean)",
-                color="CLINICAL OUTCOMES",
-                title="Initial Lactate by Outcome",
-                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
+            # Initial Lactate bar chart
+            initial_mean_alive = initial_df[initial_df["CLINICAL OUTCOMES"] == "ALIVE"]["INITIAL LACTATE (clean)"].mean()
+            initial_mean_dead = initial_df[initial_df["CLINICAL OUTCOMES"] == "DEAD"]["INITIAL LACTATE (clean)"].mean()
+            
+            fig_bar1 = go.Figure()
+            fig_bar1.add_trace(
+                go.Bar(
+                    x=["ALIVE", "DEAD"],
+                    y=[initial_mean_alive, initial_mean_dead],
+                    marker_color=["#2E8B57", "#DC143C"],
+                    name="Mean Initial Lactate"
+                )
             )
-            fig_scatter1.add_hline(
-                y=initial_df["INITIAL LACTATE (clean)"].mean(),
-                line_dash="dash",
-                line_color="gray",
-                annotation_text=f"Mean: {initial_df['INITIAL LACTATE (clean)'].mean():.2f}",
+            fig_bar1.update_layout(
+                title="Mean Initial Lactate by Outcome",
+                yaxis_title="Initial Lactate (mmol/L)",
+                xaxis_title="Clinical Outcome"
             )
-            st.plotly_chart(fig_scatter1, use_container_width=True)
+            st.plotly_chart(fig_bar1, use_container_width=True)
 
         with col2:
-            # Lactate Clearance scatter plot
-            fig_scatter2 = px.scatter(
-                clearance_df,
-                x="CLINICAL OUTCOMES",
-                y="LACTATE CLEARANCE (clean)",
-                color="CLINICAL OUTCOMES",
-                title="Lactate Clearance by Outcome",
-                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
+            # Lactate Clearance bar chart
+            clearance_mean_alive = clearance_df[clearance_df["CLINICAL OUTCOMES"] == "ALIVE"]["LACTATE CLEARANCE (clean)"].mean()
+            clearance_mean_dead = clearance_df[clearance_df["CLINICAL OUTCOMES"] == "DEAD"]["LACTATE CLEARANCE (clean)"].mean()
+            
+            fig_bar2 = go.Figure()
+            fig_bar2.add_trace(
+                go.Bar(
+                    x=["ALIVE", "DEAD"],
+                    y=[clearance_mean_alive, clearance_mean_dead],
+                    marker_color=["#2E8B57", "#DC143C"],
+                    name="Mean Lactate Clearance"
+                )
             )
-            fig_scatter2.add_hline(
-                y=clearance_df["LACTATE CLEARANCE (clean)"].mean(),
-                line_dash="dash",
-                line_color="gray",
-                annotation_text=f"Mean: {clearance_df['LACTATE CLEARANCE (clean)'].mean():.2f}",
+            fig_bar2.update_layout(
+                title="Mean Lactate Clearance by Outcome",
+                yaxis_title="Lactate Clearance (%)",
+                xaxis_title="Clinical Outcome"
             )
-            st.plotly_chart(fig_scatter2, use_container_width=True)
+            st.plotly_chart(fig_bar2, use_container_width=True)
 
         # Correlation analysis
         st.subheader("🔗 Correlation Analysis")
@@ -1385,13 +1480,22 @@ try:
             st.metric("Correlation Coefficient", f"{correlation:.3f}")
 
         with col2:
-            fig_corr = px.scatter(
-                correlation_df,
-                x="INITIAL LACTATE (clean)",
-                y="LACTATE CLEARANCE (clean)",
-                title="Initial Lactate vs Lactate Clearance",
+            # Create correlation categories for pie chart
+            correlation_df['Lactate_Category'] = pd.cut(
+                correlation_df['INITIAL LACTATE (clean)'],
+                bins=[0, 2, 4, float('inf')],
+                labels=['Low (0-2)', 'Medium (2-4)', 'High (>4)']
             )
-            st.plotly_chart(fig_corr, use_container_width=True)
+            
+            corr_counts = correlation_df['Lactate_Category'].value_counts()
+            
+            fig_corr_pie = px.pie(
+                values=corr_counts.values,
+                names=corr_counts.index,
+                title="Initial Lactate Categories Distribution",
+                color_discrete_sequence=["#4ECDC4", "#FFD93D", "#FF6B6B"]
+            )
+            st.plotly_chart(fig_corr_pie, use_container_width=True)
 
 except FileNotFoundError:
     st.error("❌ CSV file not found. Please upload your data file using the sidebar.")
