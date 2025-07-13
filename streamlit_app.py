@@ -8,6 +8,12 @@ from scipy.stats import mannwhitneyu, ttest_ind, ks_2samp, chi2_contingency
 from scipy.stats import kruskal, ranksums, wilcoxon
 import seaborn as sns
 import matplotlib.pyplot as plt
+import io
+import base64
+from PIL import Image
+import zipfile
+import zipfile
+import io
 
 # Page configuration
 st.set_page_config(
@@ -157,6 +163,212 @@ try:
             "Combined Analysis",
         ],
     )
+    
+    # Download functionality
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("📥 Download Graphs")
+    
+    # Function to convert plotly figure to PNG image
+    def fig_to_png(fig, width=1200, height=800, scale=2):
+        img_bytes = fig.to_image(format="png", width=width, height=height, scale=scale)
+        return img_bytes
+    
+    # Create download button for current graph
+    if st.sidebar.button("Download Current Graphs"):
+        try:
+            # Create a zip file in memory
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+                # Generate graphs based on current analysis type
+                if analysis_type == "Overview":
+                    # Clinical outcomes pie chart
+                    alive_count = len(df[df["CLINICAL OUTCOMES"] == "ALIVE"])
+                    dead_count = len(df[df["CLINICAL OUTCOMES"] == "DEAD"])
+                    fig_outcomes = px.pie(
+                        values=[alive_count, dead_count],
+                        names=["ALIVE", "DEAD"],
+                        title="Clinical Outcomes Distribution",
+                        color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
+                        hole=0.4  # Add a hole to make it a donut chart and avoid black fill
+                    )
+                    fig_outcomes.update_traces(textinfo='percent+label')
+                    zip_file.writestr("Clinical_Outcomes_Distribution.png", fig_to_png(fig_outcomes))
+                    
+                    # Gender distribution pie chart
+                    male_count = len(df[df["SEX"] == "MALE"])
+                    female_count = len(df[df["SEX"] == "FEMALE"])
+                    fig_gender = px.pie(
+                        values=[male_count, female_count],
+                        names=["MALE", "FEMALE"],
+                        title="Gender Distribution",
+                        color_discrete_map={"MALE": "#4169E1", "FEMALE": "#FF69B4"},
+                        hole=0.4  # Add a hole to make it a donut chart and avoid black fill
+                    )
+                    fig_gender.update_traces(textinfo='percent+label')
+                    zip_file.writestr("Gender_Distribution.png", fig_to_png(fig_gender))
+                    
+                    # Age group distribution
+                    df["Age_Group"] = pd.cut(
+                        df["AGE"],
+                        bins=[0, 40, 60, 80, 100],
+                        labels=["20-40", "41-60", "61-80", ">80"],
+                        right=True,
+                    )
+                    age_group_counts = df["Age_Group"].value_counts().sort_index()
+                    fig_age_pie = px.pie(
+                        values=age_group_counts.values,
+                        names=age_group_counts.index,
+                        title="Age Group Distribution",
+                        color_discrete_sequence=["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"],
+                        hole=0.4  # Add a hole to make it a donut chart and avoid black fill
+                    )
+                    fig_age_pie.update_traces(textinfo='percent+label')
+                    zip_file.writestr("Age_Group_Distribution.png", fig_to_png(fig_age_pie))
+                    
+                    # Age distribution bar chart
+                    age_outcome_df = df.groupby(['Age_Group', 'CLINICAL OUTCOMES']).size().reset_index(name='Count')
+                    fig_age_bar = px.bar(
+                        age_outcome_df,
+                        x="Age_Group",
+                        y="Count",
+                        color="CLINICAL OUTCOMES",
+                        title="Age Group Distribution by Clinical Outcome",
+                        color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
+                        barmode="group"
+                    )
+                    zip_file.writestr("Age_Group_Distribution_by_Clinical_Outcome.png", fig_to_png(fig_age_bar))
+                
+                elif analysis_type == "Initial Lactate Analysis":
+                    # Filter data
+                    filtered_df = df[["INITIAL LACTATE (clean)", "CLINICAL OUTCOMES"]].dropna()
+                    alive_group = filtered_df[filtered_df["CLINICAL OUTCOMES"] == "ALIVE"]["INITIAL LACTATE (clean)"]
+                    dead_group = filtered_df[filtered_df["CLINICAL OUTCOMES"] == "DEAD"]["INITIAL LACTATE (clean)"]
+                    
+                    # Bar chart
+                    mean_alive = alive_group.mean()
+                    mean_dead = dead_group.mean()
+                    fig_bar = go.Figure()
+                    fig_bar.add_trace(
+                        go.Bar(
+                            x=["ALIVE", "DEAD"],
+                            y=[mean_alive, mean_dead],
+                            marker_color=["#2E8B57", "#DC143C"],
+                            name="Mean Initial Lactate"
+                        )
+                    )
+                    fig_bar.update_layout(
+                        title="Mean Initial Lactate by Clinical Outcome",
+                        yaxis_title="Mean Initial Lactate (mmol/L)",
+                        xaxis_title="Clinical Outcome",
+                    )
+                    zip_file.writestr("Mean_Initial_Lactate_by_Clinical_Outcome.png", fig_to_png(fig_bar))
+                    
+                    # Donut chart
+                    lactate_threshold = filtered_df["INITIAL LACTATE (clean)"].median()
+                    high_lactate = len(filtered_df[filtered_df["INITIAL LACTATE (clean)"] > lactate_threshold])
+                    low_lactate = len(filtered_df[filtered_df["INITIAL LACTATE (clean)"] <= lactate_threshold])
+                    fig_pie = px.pie(
+                        values=[high_lactate, low_lactate],
+                        names=[f"High (>{lactate_threshold:.1f})", f"Low (≤{lactate_threshold:.1f})"],
+                        title="Initial Lactate Distribution (High vs Low)",
+                        color_discrete_sequence=["#FF6B6B", "#4ECDC4"],
+                        hole=0.4
+                    )
+                    fig_pie.update_traces(textinfo='percent+label')
+                    zip_file.writestr("Initial_Lactate_Distribution.png", fig_to_png(fig_pie))
+                
+                # Add more conditions for other analysis types as needed
+                
+            # Create download button
+            zip_buffer.seek(0)
+            st.sidebar.download_button(
+                label="📥 Download ZIP File",
+                data=zip_buffer.getvalue(),
+                file_name=f"{analysis_type.replace(' ', '_')}_graphs.zip",
+                mime="application/zip"
+            )
+            st.sidebar.success("✅ Graphs ready for download!")
+            
+        except Exception as e:
+            st.sidebar.error(f"Error: {str(e)}")
+            st.sidebar.info("Note: Install kaleido package for PNG export: pip install kaleido")
+    
+    # Download button
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("📥 Download Graphs")
+    if st.sidebar.button("Download All Graphs", type="primary"):
+        try:
+            # Create a zip file in memory
+            zip_buffer = io.BytesIO()
+            
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                # Function to add figure to zip
+                def add_fig_to_zip(fig, filename):
+                    try:
+                        img_bytes = fig.to_image(format="png", width=1200, height=800, scale=2)
+                        zip_file.writestr(f"{filename}.png", img_bytes)
+                    except:
+                        # Fallback: save as HTML if image export fails
+                        html_str = fig.to_html()
+                        zip_file.writestr(f"{filename}.html", html_str.encode())
+                
+                # Generate all key graphs
+                alive_count = len(df[df["CLINICAL OUTCOMES"] == "ALIVE"])
+                dead_count = len(df[df["CLINICAL OUTCOMES"] == "DEAD"])
+                male_count = len(df[df["SEX"] == "MALE"])
+                female_count = len(df[df["SEX"] == "FEMALE"])
+                
+                # Overview graphs
+                fig1 = px.pie(values=[alive_count, dead_count], names=["ALIVE", "DEAD"], title="Clinical Outcomes Distribution", color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}, hole=0.4)
+                fig1.update_traces(textinfo='percent+label')
+                add_fig_to_zip(fig1, "01_Clinical_Outcomes_Distribution")
+                
+                fig2 = px.pie(values=[male_count, female_count], names=["MALE", "FEMALE"], title="Gender Distribution", color_discrete_map={"MALE": "#4169E1", "FEMALE": "#FF69B4"}, hole=0.4)
+                fig2.update_traces(textinfo='percent+label')
+                add_fig_to_zip(fig2, "02_Gender_Distribution")
+                
+                # Age group analysis
+                df["Age_Group"] = pd.cut(df["AGE"], bins=[0, 40, 60, 80, 100], labels=["20-40", "41-60", "61-80", ">80"], right=True)
+                age_group_counts = df["Age_Group"].value_counts().sort_index()
+                fig3 = px.pie(values=age_group_counts.values, names=age_group_counts.index, title="Age Group Distribution", color_discrete_sequence=["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"], hole=0.4)
+                fig3.update_traces(textinfo='percent+label')
+                add_fig_to_zip(fig3, "03_Age_Group_Distribution")
+                
+                # Initial Lactate analysis
+                filtered_df = df[["INITIAL LACTATE (clean)", "CLINICAL OUTCOMES"]].dropna()
+                alive_group = filtered_df[filtered_df["CLINICAL OUTCOMES"] == "ALIVE"]["INITIAL LACTATE (clean)"]
+                dead_group = filtered_df[filtered_df["CLINICAL OUTCOMES"] == "DEAD"]["INITIAL LACTATE (clean)"]
+                
+                fig4 = go.Figure()
+                fig4.add_trace(go.Bar(x=["ALIVE", "DEAD"], y=[alive_group.mean(), dead_group.mean()], marker_color=["#2E8B57", "#DC143C"]))
+                fig4.update_layout(title="Mean Initial Lactate by Clinical Outcome", yaxis_title="Initial Lactate (mmol/L)", xaxis_title="Clinical Outcome")
+                add_fig_to_zip(fig4, "04_Mean_Initial_Lactate_by_Clinical_Outcome")
+                
+                # Lactate Clearance analysis
+                clearance_df = df[["LACTATE CLEARANCE (clean)", "CLINICAL OUTCOMES"]].dropna()
+                clearance_alive = clearance_df[clearance_df["CLINICAL OUTCOMES"].str.upper() == "ALIVE"]["LACTATE CLEARANCE (clean)"]
+                clearance_dead = clearance_df[clearance_df["CLINICAL OUTCOMES"].str.upper() == "DEAD"]["LACTATE CLEARANCE (clean)"]
+                
+                fig5 = go.Figure()
+                fig5.add_trace(go.Bar(name="ALIVE", x=["Mean", "Median"], y=[clearance_alive.mean(), clearance_alive.median()], marker_color="#2E8B57"))
+                fig5.add_trace(go.Bar(name="DEAD", x=["Mean", "Median"], y=[clearance_dead.mean(), clearance_dead.median()], marker_color="#DC143C"))
+                fig5.update_layout(title="Lactate Clearance Statistics by Clinical Outcome", barmode="group")
+                add_fig_to_zip(fig5, "05_Lactate_Clearance_Statistics_by_Clinical_Outcome")
+                
+                st.sidebar.success("✅ Graphs prepared for download!")
+                
+            # Prepare download
+            zip_buffer.seek(0)
+            st.sidebar.download_button(
+                label="📥 Download ZIP File",
+                data=zip_buffer.getvalue(),
+                file_name="medical_analysis_graphs.zip",
+                mime="application/zip"
+            )
+            
+        except Exception as e:
+            st.sidebar.error(f"Error: {str(e)}")
+            st.sidebar.info("Note: Install kaleido package for PNG export: pip install kaleido")
 
     if analysis_type == "Overview":
         st.header("📊 Data Overview")
@@ -184,7 +396,9 @@ try:
                 names=["ALIVE", "DEAD"],
                 title="Clinical Outcomes Distribution",
                 color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
+                hole=0.4  # Add a hole to make it a donut chart and avoid black fill
             )
+            fig_pie.update_traces(textinfo='percent+label')
             st.plotly_chart(fig_pie, use_container_width=True)
 
         with col2:
@@ -197,7 +411,9 @@ try:
                 names=["MALE", "FEMALE"],
                 title="Gender Distribution",
                 color_discrete_map={"MALE": "#4169E1", "FEMALE": "#FF69B4"},
+                hole=0.4  # Add a hole to make it a donut chart and avoid black fill
             )
+            fig_gender.update_traces(textinfo='percent+label')
             st.plotly_chart(fig_gender, use_container_width=True)
 
         # Gender counts display
@@ -232,7 +448,9 @@ try:
                 names=age_group_counts.index,
                 title="Age Group Distribution",
                 color_discrete_sequence=["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"],
+                hole=0.4  # Add a hole to make it a donut chart and avoid black fill
             )
+            fig_age_pie.update_traces(textinfo='percent+label')
             st.plotly_chart(fig_age_pie, use_container_width=True)
 
         with col2:
@@ -306,7 +524,7 @@ try:
         )
         st.plotly_chart(fig_bar, use_container_width=True)
 
-        # Pie chart showing distribution of high vs low lactate
+        # Donut chart showing distribution of high vs low lactate
         lactate_threshold = filtered_df["INITIAL LACTATE (clean)"].median()
         high_lactate = len(filtered_df[filtered_df["INITIAL LACTATE (clean)"] > lactate_threshold])
         low_lactate = len(filtered_df[filtered_df["INITIAL LACTATE (clean)"] <= lactate_threshold])
@@ -315,8 +533,10 @@ try:
             values=[high_lactate, low_lactate],
             names=[f"High (>{lactate_threshold:.1f})", f"Low (≤{lactate_threshold:.1f})"],
             title="Initial Lactate Distribution (High vs Low)",
-            color_discrete_sequence=["#FF6B6B", "#4ECDC4"]
+            color_discrete_sequence=["#FF6B6B", "#4ECDC4"],
+            hole=0.4
         )
+        fig_pie.update_traces(textinfo='percent+label')
         st.plotly_chart(fig_pie, use_container_width=True)
 
         # Summary statistics
@@ -450,8 +670,10 @@ try:
             values=[good_clearance, poor_clearance],
             names=["Good Clearance (≥20%)", "Poor Clearance (<20%)"],
             title="Lactate Clearance Categories",
-            color_discrete_sequence=["#2E8B57", "#DC143C"]
+            color_discrete_sequence=["#2E8B57", "#DC143C"],
+            hole=0.4
         )
+        fig_pie.update_traces(textinfo='percent+label')
         st.plotly_chart(fig_pie, use_container_width=True)
 
         # Summary statistics
@@ -586,8 +808,10 @@ try:
             values=[normal_lactate, elevated_lactate],
             names=[f"Normal (≤{normal_threshold})", f"Elevated (>{normal_threshold})"],
             title="Repeat Lactate Categories",
-            color_discrete_sequence=["#4ECDC4", "#FF6B6B"]
+            color_discrete_sequence=["#4ECDC4", "#FF6B6B"],
+            hole=0.4
         )
+        fig_pie.update_traces(textinfo='percent+label')
         st.plotly_chart(fig_pie, use_container_width=True)
 
         # Summary statistics
@@ -725,8 +949,10 @@ try:
                 values=alive_counts.values,
                 names=alive_counts.index,
                 title="Age Groups - ALIVE Patients",
-                color_discrete_sequence=["#90EE90", "#32CD32", "#228B22"]
+                color_discrete_sequence=["#90EE90", "#32CD32", "#228B22"],
+                hole=0.4
             )
+            fig_pie_alive.update_traces(textinfo='percent+label')
             st.plotly_chart(fig_pie_alive, use_container_width=True)
         
         with col2:
@@ -738,8 +964,10 @@ try:
                 values=dead_counts.values,
                 names=dead_counts.index,
                 title="Age Groups - DEAD Patients",
-                color_discrete_sequence=["#FFB6C1", "#FF69B4", "#DC143C"]
+                color_discrete_sequence=["#FFB6C1", "#FF69B4", "#DC143C"],
+                hole=0.4
             )
+            fig_pie_dead.update_traces(textinfo='percent+label')
             st.plotly_chart(fig_pie_dead, use_container_width=True)
 
         # Summary statistics
@@ -845,8 +1073,10 @@ try:
                 values=[cad_alive + cad_dead, no_cad_alive + no_cad_dead],
                 names=["CAD Patients", "No CAD Patients"],
                 title="CAD Distribution",
-                color_discrete_sequence=["#FF6B6B", "#4ECDC4"]
+                color_discrete_sequence=["#FF6B6B", "#4ECDC4"],
+                hole=0.4
             )
+            fig_pie_cad.update_traces(textinfo='percent+label')
             st.plotly_chart(fig_pie_cad, use_container_width=True)
         
         with col2:
@@ -854,8 +1084,10 @@ try:
                 values=[cad_alive + no_cad_alive, cad_dead + no_cad_dead],
                 names=["ALIVE", "DEAD"],
                 title="Overall Outcomes",
-                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}
+                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
+                hole=0.4
             )
+            fig_pie_outcome.update_traces(textinfo='percent+label')
             st.plotly_chart(fig_pie_outcome, use_container_width=True)
 
         # Survival rates
@@ -984,8 +1216,10 @@ try:
                 values=[shtn_t2dm_alive + shtn_t2dm_dead, no_shtn_t2dm_alive + no_shtn_t2dm_dead],
                 names=["SHTN+T2DM", "Others"],
                 title="SHTN+T2DM Distribution",
-                color_discrete_sequence=["#FFD93D", "#96CEB4"]
+                color_discrete_sequence=["#FFD93D", "#96CEB4"],
+                hole=0.4
             )
+            fig_pie_shtn.update_traces(textinfo='percent+label')
             st.plotly_chart(fig_pie_shtn, use_container_width=True)
         
         with col2:
@@ -993,8 +1227,10 @@ try:
                 values=[shtn_t2dm_alive + no_shtn_t2dm_alive, shtn_t2dm_dead + no_shtn_t2dm_dead],
                 names=["ALIVE", "DEAD"],
                 title="Overall Outcomes",
-                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}
+                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
+                hole=0.4
             )
+            fig_pie_outcome.update_traces(textinfo='percent+label')
             st.plotly_chart(fig_pie_outcome, use_container_width=True)
 
         # Survival rates
@@ -1149,8 +1385,10 @@ try:
                 values=[unstable_alive + unstable_dead, stable_alive + stable_dead],
                 names=["Unstable Hemodynamics", "Stable Hemodynamics"],
                 title="Hemodynamic Status Distribution",
-                color_discrete_sequence=["#FF6B6B", "#4ECDC4"]
+                color_discrete_sequence=["#FF6B6B", "#4ECDC4"],
+                hole=0.4
             )
+            fig_pie_hemo.update_traces(textinfo='percent+label')
             st.plotly_chart(fig_pie_hemo, use_container_width=True)
         
         with col2:
@@ -1158,8 +1396,10 @@ try:
                 values=[unstable_alive + stable_alive, unstable_dead + stable_dead],
                 names=["ALIVE", "DEAD"],
                 title="Overall Outcomes",
-                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}
+                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
+                hole=0.4
             )
+            fig_pie_outcome.update_traces(textinfo='percent+label')
             st.plotly_chart(fig_pie_outcome, use_container_width=True)
 
         # Survival rates
@@ -1493,8 +1733,10 @@ try:
                 values=corr_counts.values,
                 names=corr_counts.index,
                 title="Initial Lactate Categories Distribution",
-                color_discrete_sequence=["#4ECDC4", "#FFD93D", "#FF6B6B"]
+                color_discrete_sequence=["#4ECDC4", "#FFD93D", "#FF6B6B"],
+                hole=0.4
             )
+            fig_corr_pie.update_traces(textinfo='percent+label')
             st.plotly_chart(fig_corr_pie, use_container_width=True)
 
 except FileNotFoundError:
@@ -1511,3 +1753,11 @@ st.markdown("---")
 st.markdown(
     "*Dashboard created for medical data analysis using multiple statistical tests*"
 )
+
+# Add installation instructions for kaleido if needed
+if "show_install_info" not in st.session_state:
+    st.session_state.show_install_info = True
+    st.info(
+        "📝 Note: For downloading graphs as PNG files, make sure the 'kaleido' package is installed. \n\n"
+        "Run this command in your terminal: `pip install kaleido`"
+    )
