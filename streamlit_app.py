@@ -15,10 +15,32 @@ import zipfile
 import zipfile
 import io
 
+# Set global Plotly font size configuration
+import plotly.io as pio
+
+# Configure default font sizes for all plotly figures
+pio.templates["plotly"].layout.font.size = 26  # Base font size
+pio.templates["plotly"].layout.title.font.size = 30  # Title font size
+pio.templates["plotly"].layout.xaxis.title.font.size = 28  # X-axis title font size
+pio.templates["plotly"].layout.yaxis.title.font.size = 28  # Y-axis title font size
+pio.templates["plotly"].layout.legend.font.size = 26  # Legend font size
+
 # Page configuration
 st.set_page_config(
     page_title="Anu's Medical Data Analysis Dashboard", page_icon="🏥", layout="wide"
 )
+
+# Set larger font size for the entire app
+st.markdown("""
+<style>
+    .dataframe {font-size: 26px !important;}
+    .stMarkdown {font-size: 28px !important;}
+    .stMetric {font-size: 30px !important;}
+    .stMetric-value {font-size: 34px !important;}
+    .stDataFrame {font-size: 26px !important;}
+    div[data-testid="stTable"] {font-size: 26px !important;}
+</style>
+""", unsafe_allow_html=True)
 
 # Title and description
 st.title("🏥 Anu's Medical Data Analysis Dashboard")
@@ -168,9 +190,18 @@ try:
     st.sidebar.markdown("---")
     st.sidebar.subheader("📥 Download Graphs")
     
-    # Function to convert plotly figure to PNG image
-    def fig_to_png(fig, width=1200, height=800, scale=2):
-        img_bytes = fig.to_image(format="png", width=width, height=height, scale=scale)
+    # Function to convert plotly figure to PNG image with enhanced font sizes
+    def fig_to_png(fig, width=1200, height=800, scale=3):
+        # Make a copy of the figure to avoid modifying the original
+        fig_copy = fig.update_layout(
+            font=dict(size=28),  # Increase base font size
+            title_font=dict(size=32),  # Increase title font size
+            legend=dict(font=dict(size=28)),  # Increase legend font size
+            xaxis=dict(title_font=dict(size=30), tickfont=dict(size=26)),  # X-axis fonts
+            yaxis=dict(title_font=dict(size=30), tickfont=dict(size=26))   # Y-axis fonts
+        )
+        # Higher scale for better resolution
+        img_bytes = fig_copy.to_image(format="png", width=width, height=height, scale=scale)
         return img_bytes
     
     # Create download button for current graph
@@ -188,10 +219,13 @@ try:
                         values=[alive_count, dead_count],
                         names=["ALIVE", "DEAD"],
                         title="Clinical Outcomes Distribution",
-                        color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
-                        hole=0.4  # Add a hole to make it a donut chart and avoid black fill
+                        color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}
                     )
-                    fig_outcomes.update_traces(textinfo='percent+label')
+                    fig_outcomes.update_traces(textinfo='percent+label', textfont_size=26)
+                    fig_outcomes.update_layout(
+                        title_font=dict(size=30),
+                        legend=dict(font=dict(size=26))
+                    )
                     zip_file.writestr("Clinical_Outcomes_Distribution.png", fig_to_png(fig_outcomes))
                     
                     # Gender distribution pie chart
@@ -201,10 +235,13 @@ try:
                         values=[male_count, female_count],
                         names=["MALE", "FEMALE"],
                         title="Gender Distribution",
-                        color_discrete_map={"MALE": "#4169E1", "FEMALE": "#FF69B4"},
-                        hole=0.4  # Add a hole to make it a donut chart and avoid black fill
+                        color_discrete_map={"MALE": "#4169E1", "FEMALE": "#FF69B4"}
                     )
-                    fig_gender.update_traces(textinfo='percent+label')
+                    fig_gender.update_traces(textinfo='percent+label', textfont_size=26)
+                    fig_gender.update_layout(
+                        title_font=dict(size=30),
+                        legend=dict(font=dict(size=26))
+                    )
                     zip_file.writestr("Gender_Distribution.png", fig_to_png(fig_gender))
                     
                     # Age group distribution
@@ -219,10 +256,13 @@ try:
                         values=age_group_counts.values,
                         names=age_group_counts.index,
                         title="Age Group Distribution",
-                        color_discrete_sequence=["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"],
-                        hole=0.4  # Add a hole to make it a donut chart and avoid black fill
+                        color_discrete_sequence=["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"]
                     )
-                    fig_age_pie.update_traces(textinfo='percent+label')
+                    fig_age_pie.update_traces(textinfo='percent+label', textfont_size=26)
+                    fig_age_pie.update_layout(
+                        title_font=dict(size=30),
+                        legend=dict(font=dict(size=26))
+                    )
                     zip_file.writestr("Age_Group_Distribution.png", fig_to_png(fig_age_pie))
                     
                     # Age distribution bar chart
@@ -235,6 +275,12 @@ try:
                         title="Age Group Distribution by Clinical Outcome",
                         color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
                         barmode="group"
+                    )
+                    fig_age_bar.update_layout(
+                        title_font=dict(size=30),
+                        legend=dict(font=dict(size=26)),
+                        xaxis=dict(title_font=dict(size=28), tickfont=dict(size=26)),
+                        yaxis=dict(title_font=dict(size=28), tickfont=dict(size=26))
                     )
                     zip_file.writestr("Age_Group_Distribution_by_Clinical_Outcome.png", fig_to_png(fig_age_bar))
                 
@@ -260,6 +306,10 @@ try:
                         title="Mean Initial Lactate by Clinical Outcome",
                         yaxis_title="Mean Initial Lactate (mmol/L)",
                         xaxis_title="Clinical Outcome",
+                        title_font=dict(size=30),
+                        legend=dict(font=dict(size=26)),
+                        xaxis=dict(title_font=dict(size=28), tickfont=dict(size=26)),
+                        yaxis=dict(title_font=dict(size=28), tickfont=dict(size=26))
                     )
                     zip_file.writestr("Mean_Initial_Lactate_by_Clinical_Outcome.png", fig_to_png(fig_bar))
                     
@@ -271,10 +321,13 @@ try:
                         values=[high_lactate, low_lactate],
                         names=[f"High (>{lactate_threshold:.1f})", f"Low (≤{lactate_threshold:.1f})"],
                         title="Initial Lactate Distribution (High vs Low)",
-                        color_discrete_sequence=["#FF6B6B", "#4ECDC4"],
-                        hole=0.4
+                        color_discrete_sequence=["#FF6B6B", "#4ECDC4"]
                     )
-                    fig_pie.update_traces(textinfo='percent+label')
+                    fig_pie.update_traces(textinfo='percent+label', textfont_size=26)
+                    fig_pie.update_layout(
+                        title_font=dict(size=30),
+                        legend=dict(font=dict(size=26))
+                    )
                     zip_file.writestr("Initial_Lactate_Distribution.png", fig_to_png(fig_pie))
                 
                 # Add more conditions for other analysis types as needed
@@ -302,15 +355,25 @@ try:
             zip_buffer = io.BytesIO()
             
             with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-                # Function to add figure to zip
+                # Function to add figure to zip with enhanced font sizes
                 def add_fig_to_zip(fig, filename):
                     try:
-                        img_bytes = fig.to_image(format="png", width=1200, height=800, scale=2)
+                        # Make a copy of the figure to avoid modifying the original
+                        fig_copy = fig.update_layout(
+                            font=dict(size=28),  # Increase base font size
+                            title_font=dict(size=32),  # Increase title font size
+                            legend=dict(font=dict(size=28)),  # Increase legend font size
+                            xaxis=dict(title_font=dict(size=30), tickfont=dict(size=26)),  # X-axis fonts
+                            yaxis=dict(title_font=dict(size=30), tickfont=dict(size=26))   # Y-axis fonts
+                        )
+                        # Higher scale for better resolution
+                        img_bytes = fig_copy.to_image(format="png", width=1200, height=800, scale=3)
                         zip_file.writestr(f"{filename}.png", img_bytes)
-                    except:
+                    except Exception as e:
                         # Fallback: save as HTML if image export fails
                         html_str = fig.to_html()
                         zip_file.writestr(f"{filename}.html", html_str.encode())
+                        print(f"Error exporting {filename}: {str(e)}")
                 
                 # Generate all key graphs
                 alive_count = len(df[df["CLINICAL OUTCOMES"] == "ALIVE"])
@@ -319,19 +382,31 @@ try:
                 female_count = len(df[df["SEX"] == "FEMALE"])
                 
                 # Overview graphs
-                fig1 = px.pie(values=[alive_count, dead_count], names=["ALIVE", "DEAD"], title="Clinical Outcomes Distribution", color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}, hole=0.4)
-                fig1.update_traces(textinfo='percent+label')
+                fig1 = px.pie(values=[alive_count, dead_count], names=["ALIVE", "DEAD"], title="Clinical Outcomes Distribution", color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"})
+                fig1.update_traces(textinfo='percent+label', textfont_size=26)
+                fig1.update_layout(
+                    title_font=dict(size=30),
+                    legend=dict(font=dict(size=26))
+                )
                 add_fig_to_zip(fig1, "01_Clinical_Outcomes_Distribution")
                 
-                fig2 = px.pie(values=[male_count, female_count], names=["MALE", "FEMALE"], title="Gender Distribution", color_discrete_map={"MALE": "#4169E1", "FEMALE": "#FF69B4"}, hole=0.4)
-                fig2.update_traces(textinfo='percent+label')
+                fig2 = px.pie(values=[male_count, female_count], names=["MALE", "FEMALE"], title="Gender Distribution", color_discrete_map={"MALE": "#4169E1", "FEMALE": "#FF69B4"})
+                fig2.update_traces(textinfo='percent+label', textfont_size=26)
+                fig2.update_layout(
+                    title_font=dict(size=30),
+                    legend=dict(font=dict(size=26))
+                )
                 add_fig_to_zip(fig2, "02_Gender_Distribution")
                 
                 # Age group analysis
                 df["Age_Group"] = pd.cut(df["AGE"], bins=[0, 40, 60, 80, 100], labels=["20-40", "41-60", "61-80", ">80"], right=True)
                 age_group_counts = df["Age_Group"].value_counts().sort_index()
-                fig3 = px.pie(values=age_group_counts.values, names=age_group_counts.index, title="Age Group Distribution", color_discrete_sequence=["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"], hole=0.4)
-                fig3.update_traces(textinfo='percent+label')
+                fig3 = px.pie(values=age_group_counts.values, names=age_group_counts.index, title="Age Group Distribution", color_discrete_sequence=["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"])
+                fig3.update_traces(textinfo='percent+label', textfont_size=26)
+                fig3.update_layout(
+                    title_font=dict(size=30),
+                    legend=dict(font=dict(size=26))
+                )
                 add_fig_to_zip(fig3, "03_Age_Group_Distribution")
                 
                 # Initial Lactate analysis
@@ -341,7 +416,15 @@ try:
                 
                 fig4 = go.Figure()
                 fig4.add_trace(go.Bar(x=["ALIVE", "DEAD"], y=[alive_group.mean(), dead_group.mean()], marker_color=["#2E8B57", "#DC143C"]))
-                fig4.update_layout(title="Mean Initial Lactate by Clinical Outcome", yaxis_title="Initial Lactate (mmol/L)", xaxis_title="Clinical Outcome")
+                fig4.update_layout(
+                    title="Mean Initial Lactate by Clinical Outcome", 
+                    yaxis_title="Initial Lactate (mmol/L)", 
+                    xaxis_title="Clinical Outcome",
+                    title_font=dict(size=30),
+                    legend=dict(font=dict(size=26)),
+                    xaxis=dict(title_font=dict(size=28), tickfont=dict(size=26)),
+                    yaxis=dict(title_font=dict(size=28), tickfont=dict(size=26))
+                )
                 add_fig_to_zip(fig4, "04_Mean_Initial_Lactate_by_Clinical_Outcome")
                 
                 # Lactate Clearance analysis
@@ -352,7 +435,14 @@ try:
                 fig5 = go.Figure()
                 fig5.add_trace(go.Bar(name="ALIVE", x=["Mean", "Median"], y=[clearance_alive.mean(), clearance_alive.median()], marker_color="#2E8B57"))
                 fig5.add_trace(go.Bar(name="DEAD", x=["Mean", "Median"], y=[clearance_dead.mean(), clearance_dead.median()], marker_color="#DC143C"))
-                fig5.update_layout(title="Lactate Clearance Statistics by Clinical Outcome", barmode="group")
+                fig5.update_layout(
+                    title="Lactate Clearance Statistics by Clinical Outcome", 
+                    barmode="group",
+                    title_font=dict(size=30),
+                    legend=dict(font=dict(size=26)),
+                    xaxis=dict(title_font=dict(size=28), tickfont=dict(size=26)),
+                    yaxis=dict(title_font=dict(size=28), tickfont=dict(size=26))
+                )
                 add_fig_to_zip(fig5, "05_Lactate_Clearance_Statistics_by_Clinical_Outcome")
                 
                 st.sidebar.success("✅ Graphs prepared for download!")
@@ -395,10 +485,13 @@ try:
                 values=[alive_count, dead_count],
                 names=["ALIVE", "DEAD"],
                 title="Clinical Outcomes Distribution",
-                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
-                hole=0.4  # Add a hole to make it a donut chart and avoid black fill
+                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}
             )
-            fig_pie.update_traces(textinfo='percent+label')
+            fig_pie.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie.update_layout(
+                title_font=dict(size=30),
+                legend=dict(font=dict(size=26))
+            )
             st.plotly_chart(fig_pie, use_container_width=True)
 
         with col2:
@@ -410,10 +503,13 @@ try:
                 values=[male_count, female_count],
                 names=["MALE", "FEMALE"],
                 title="Gender Distribution",
-                color_discrete_map={"MALE": "#4169E1", "FEMALE": "#FF69B4"},
-                hole=0.4  # Add a hole to make it a donut chart and avoid black fill
+                color_discrete_map={"MALE": "#4169E1", "FEMALE": "#FF69B4"}
             )
-            fig_gender.update_traces(textinfo='percent+label')
+            fig_gender.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_gender.update_layout(
+                title_font=dict(size=30),
+                legend=dict(font=dict(size=26))
+            )
             st.plotly_chart(fig_gender, use_container_width=True)
 
         # Gender counts display
@@ -447,10 +543,13 @@ try:
                 values=age_group_counts.values,
                 names=age_group_counts.index,
                 title="Age Group Distribution",
-                color_discrete_sequence=["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"],
-                hole=0.4  # Add a hole to make it a donut chart and avoid black fill
+                color_discrete_sequence=["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"]
             )
-            fig_age_pie.update_traces(textinfo='percent+label')
+            fig_age_pie.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_age_pie.update_layout(
+                title_font=dict(size=30),
+                legend=dict(font=dict(size=26))
+            )
             st.plotly_chart(fig_age_pie, use_container_width=True)
 
         with col2:
@@ -476,6 +575,12 @@ try:
             title="Age Group Distribution by Clinical Outcome",
             color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
             barmode="group"
+        )
+        fig_age_bar.update_layout(
+            title_font=dict(size=30),
+            legend=dict(font=dict(size=26)),
+            xaxis=dict(title_font=dict(size=28), tickfont=dict(size=26)),
+            yaxis=dict(title_font=dict(size=28), tickfont=dict(size=26))
         )
         st.plotly_chart(fig_age_bar, use_container_width=True)
 
@@ -521,6 +626,10 @@ try:
             title="Mean Initial Lactate by Clinical Outcome",
             yaxis_title="Mean Initial Lactate (mmol/L)",
             xaxis_title="Clinical Outcome",
+            title_font=dict(size=30),
+            legend=dict(font=dict(size=26)),
+            xaxis=dict(title_font=dict(size=28), tickfont=dict(size=26)),
+            yaxis=dict(title_font=dict(size=28), tickfont=dict(size=26))
         )
         st.plotly_chart(fig_bar, use_container_width=True)
 
@@ -533,10 +642,13 @@ try:
             values=[high_lactate, low_lactate],
             names=[f"High (>{lactate_threshold:.1f})", f"Low (≤{lactate_threshold:.1f})"],
             title="Initial Lactate Distribution (High vs Low)",
-            color_discrete_sequence=["#FF6B6B", "#4ECDC4"],
-            hole=0.4
+            color_discrete_sequence=["#FF6B6B", "#4ECDC4"]
         )
-        fig_pie.update_traces(textinfo='percent+label')
+        fig_pie.update_traces(textinfo='percent+label', textfont_size=26)
+        fig_pie.update_layout(
+            title_font=dict(size=30),
+            legend=dict(font=dict(size=26))
+        )
         st.plotly_chart(fig_pie, use_container_width=True)
 
         # Summary statistics
@@ -658,7 +770,11 @@ try:
             title="Lactate Clearance Statistics by Clinical Outcome",
             yaxis_title="Lactate Clearance (%)",
             xaxis_title="Statistic",
-            barmode="group"
+            barmode="group",
+            title_font=dict(size=30),
+            legend=dict(font=dict(size=26)),
+            xaxis=dict(title_font=dict(size=28), tickfont=dict(size=26)),
+            yaxis=dict(title_font=dict(size=28), tickfont=dict(size=26))
         )
         st.plotly_chart(fig_double_bar, use_container_width=True)
 
@@ -670,10 +786,13 @@ try:
             values=[good_clearance, poor_clearance],
             names=["Good Clearance (≥20%)", "Poor Clearance (<20%)"],
             title="Lactate Clearance Categories",
-            color_discrete_sequence=["#2E8B57", "#DC143C"],
-            hole=0.4
+            color_discrete_sequence=["#2E8B57", "#DC143C"]
         )
-        fig_pie.update_traces(textinfo='percent+label')
+        fig_pie.update_traces(textinfo='percent+label', textfont_size=26)
+        fig_pie.update_layout(
+            title_font=dict(size=30),
+            legend=dict(font=dict(size=26))
+        )
         st.plotly_chart(fig_pie, use_container_width=True)
 
         # Summary statistics
@@ -795,7 +914,11 @@ try:
             title="Repeat Lactate Statistics by Clinical Outcome",
             yaxis_title="Repeat Lactate (mmol/L)",
             xaxis_title="Statistic",
-            barmode="group"
+            barmode="group",
+            title_font=dict(size=30),
+            legend=dict(font=dict(size=26)),
+            xaxis=dict(title_font=dict(size=28), tickfont=dict(size=26)),
+            yaxis=dict(title_font=dict(size=28), tickfont=dict(size=26))
         )
         st.plotly_chart(fig_double_bar, use_container_width=True)
 
@@ -808,10 +931,13 @@ try:
             values=[normal_lactate, elevated_lactate],
             names=[f"Normal (≤{normal_threshold})", f"Elevated (>{normal_threshold})"],
             title="Repeat Lactate Categories",
-            color_discrete_sequence=["#4ECDC4", "#FF6B6B"],
-            hole=0.4
+            color_discrete_sequence=["#4ECDC4", "#FF6B6B"]
         )
-        fig_pie.update_traces(textinfo='percent+label')
+        fig_pie.update_traces(textinfo='percent+label', textfont_size=26)
+        fig_pie.update_layout(
+            title_font=dict(size=30),
+            legend=dict(font=dict(size=26))
+        )
         st.plotly_chart(fig_pie, use_container_width=True)
 
         # Summary statistics
@@ -933,7 +1059,11 @@ try:
             title="Age Statistics by Clinical Outcome",
             yaxis_title="Age (years)",
             xaxis_title="Statistic",
-            barmode="group"
+            barmode="group",
+            title_font=dict(size=30),
+            legend=dict(font=dict(size=26)),
+            xaxis=dict(title_font=dict(size=28), tickfont=dict(size=26)),
+            yaxis=dict(title_font=dict(size=28), tickfont=dict(size=26))
         )
         st.plotly_chart(fig_double_bar, use_container_width=True)
 
@@ -949,10 +1079,13 @@ try:
                 values=alive_counts.values,
                 names=alive_counts.index,
                 title="Age Groups - ALIVE Patients",
-                color_discrete_sequence=["#90EE90", "#32CD32", "#228B22"],
-                hole=0.4
+                color_discrete_sequence=["#90EE90", "#32CD32", "#228B22"]
             )
-            fig_pie_alive.update_traces(textinfo='percent+label')
+            fig_pie_alive.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie_alive.update_layout(
+                title_font=dict(size=30),
+                legend=dict(font=dict(size=26))
+            )
             st.plotly_chart(fig_pie_alive, use_container_width=True)
         
         with col2:
@@ -964,10 +1097,13 @@ try:
                 values=dead_counts.values,
                 names=dead_counts.index,
                 title="Age Groups - DEAD Patients",
-                color_discrete_sequence=["#FFB6C1", "#FF69B4", "#DC143C"],
-                hole=0.4
+                color_discrete_sequence=["#FFB6C1", "#FF69B4", "#DC143C"]
             )
-            fig_pie_dead.update_traces(textinfo='percent+label')
+            fig_pie_dead.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie_dead.update_layout(
+                title_font=dict(size=30),
+                legend=dict(font=dict(size=26))
+            )
             st.plotly_chart(fig_pie_dead, use_container_width=True)
 
         # Summary statistics
@@ -1063,6 +1199,10 @@ try:
             xaxis_title="CAD Status",
             yaxis_title="Count",
             barmode="group",
+            title_font=dict(size=30),
+            legend=dict(font=dict(size=26)),
+            xaxis=dict(title_font=dict(size=28), tickfont=dict(size=26)),
+            yaxis=dict(title_font=dict(size=28), tickfont=dict(size=26))
         )
         st.plotly_chart(fig_bar, use_container_width=True)
         
@@ -1073,10 +1213,13 @@ try:
                 values=[cad_alive + cad_dead, no_cad_alive + no_cad_dead],
                 names=["CAD Patients", "No CAD Patients"],
                 title="CAD Distribution",
-                color_discrete_sequence=["#FF6B6B", "#4ECDC4"],
-                hole=0.4
+                color_discrete_sequence=["#FF6B6B", "#4ECDC4"]
             )
-            fig_pie_cad.update_traces(textinfo='percent+label')
+            fig_pie_cad.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie_cad.update_layout(
+                title_font=dict(size=30),
+                legend=dict(font=dict(size=26))
+            )
             st.plotly_chart(fig_pie_cad, use_container_width=True)
         
         with col2:
@@ -1084,10 +1227,13 @@ try:
                 values=[cad_alive + no_cad_alive, cad_dead + no_cad_dead],
                 names=["ALIVE", "DEAD"],
                 title="Overall Outcomes",
-                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
-                hole=0.4
+                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}
             )
-            fig_pie_outcome.update_traces(textinfo='percent+label')
+            fig_pie_outcome.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie_outcome.update_layout(
+                title_font=dict(size=30),
+                legend=dict(font=dict(size=26))
+            )
             st.plotly_chart(fig_pie_outcome, use_container_width=True)
 
         # Survival rates
@@ -1206,6 +1352,10 @@ try:
             xaxis_title="Patient Group",
             yaxis_title="Count",
             barmode="group",
+            title_font=dict(size=30),
+            legend=dict(font=dict(size=26)),
+            xaxis=dict(title_font=dict(size=28), tickfont=dict(size=26)),
+            yaxis=dict(title_font=dict(size=28), tickfont=dict(size=26))
         )
         st.plotly_chart(fig_bar, use_container_width=True)
         
@@ -1216,10 +1366,13 @@ try:
                 values=[shtn_t2dm_alive + shtn_t2dm_dead, no_shtn_t2dm_alive + no_shtn_t2dm_dead],
                 names=["SHTN+T2DM", "Others"],
                 title="SHTN+T2DM Distribution",
-                color_discrete_sequence=["#FFD93D", "#96CEB4"],
-                hole=0.4
+                color_discrete_sequence=["#FFD93D", "#96CEB4"]
             )
-            fig_pie_shtn.update_traces(textinfo='percent+label')
+            fig_pie_shtn.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie_shtn.update_layout(
+                title_font=dict(size=30),
+                legend=dict(font=dict(size=26))
+            )
             st.plotly_chart(fig_pie_shtn, use_container_width=True)
         
         with col2:
@@ -1227,10 +1380,13 @@ try:
                 values=[shtn_t2dm_alive + no_shtn_t2dm_alive, shtn_t2dm_dead + no_shtn_t2dm_dead],
                 names=["ALIVE", "DEAD"],
                 title="Overall Outcomes",
-                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
-                hole=0.4
+                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}
             )
-            fig_pie_outcome.update_traces(textinfo='percent+label')
+            fig_pie_outcome.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie_outcome.update_layout(
+                title_font=dict(size=30),
+                legend=dict(font=dict(size=26))
+            )
             st.plotly_chart(fig_pie_outcome, use_container_width=True)
 
         # Survival rates
@@ -1375,6 +1531,10 @@ try:
             xaxis_title="Hemodynamic Status",
             yaxis_title="Count",
             barmode="group",
+            title_font=dict(size=30),
+            legend=dict(font=dict(size=26)),
+            xaxis=dict(title_font=dict(size=28), tickfont=dict(size=26)),
+            yaxis=dict(title_font=dict(size=28), tickfont=dict(size=26))
         )
         st.plotly_chart(fig_bar, use_container_width=True)
         
@@ -1385,10 +1545,13 @@ try:
                 values=[unstable_alive + unstable_dead, stable_alive + stable_dead],
                 names=["Unstable Hemodynamics", "Stable Hemodynamics"],
                 title="Hemodynamic Status Distribution",
-                color_discrete_sequence=["#FF6B6B", "#4ECDC4"],
-                hole=0.4
+                color_discrete_sequence=["#FF6B6B", "#4ECDC4"]
             )
-            fig_pie_hemo.update_traces(textinfo='percent+label')
+            fig_pie_hemo.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie_hemo.update_layout(
+                title_font=dict(size=30),
+                legend=dict(font=dict(size=26))
+            )
             st.plotly_chart(fig_pie_hemo, use_container_width=True)
         
         with col2:
@@ -1396,10 +1559,13 @@ try:
                 values=[unstable_alive + stable_alive, unstable_dead + stable_dead],
                 names=["ALIVE", "DEAD"],
                 title="Overall Outcomes",
-                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
-                hole=0.4
+                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}
             )
-            fig_pie_outcome.update_traces(textinfo='percent+label')
+            fig_pie_outcome.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie_outcome.update_layout(
+                title_font=dict(size=30),
+                legend=dict(font=dict(size=26))
+            )
             st.plotly_chart(fig_pie_outcome, use_container_width=True)
 
         # Survival rates
@@ -1683,7 +1849,11 @@ try:
             fig_bar1.update_layout(
                 title="Mean Initial Lactate by Outcome",
                 yaxis_title="Initial Lactate (mmol/L)",
-                xaxis_title="Clinical Outcome"
+                xaxis_title="Clinical Outcome",
+                title_font=dict(size=30),
+                legend=dict(font=dict(size=26)),
+                xaxis=dict(title_font=dict(size=28), tickfont=dict(size=26)),
+                yaxis=dict(title_font=dict(size=28), tickfont=dict(size=26))
             )
             st.plotly_chart(fig_bar1, use_container_width=True)
 
@@ -1704,7 +1874,11 @@ try:
             fig_bar2.update_layout(
                 title="Mean Lactate Clearance by Outcome",
                 yaxis_title="Lactate Clearance (%)",
-                xaxis_title="Clinical Outcome"
+                xaxis_title="Clinical Outcome",
+                title_font=dict(size=30),
+                legend=dict(font=dict(size=26)),
+                xaxis=dict(title_font=dict(size=28), tickfont=dict(size=26)),
+                yaxis=dict(title_font=dict(size=28), tickfont=dict(size=26))
             )
             st.plotly_chart(fig_bar2, use_container_width=True)
 
@@ -1733,10 +1907,13 @@ try:
                 values=corr_counts.values,
                 names=corr_counts.index,
                 title="Initial Lactate Categories Distribution",
-                color_discrete_sequence=["#4ECDC4", "#FFD93D", "#FF6B6B"],
-                hole=0.4
+                color_discrete_sequence=["#4ECDC4", "#FFD93D", "#FF6B6B"]
             )
-            fig_corr_pie.update_traces(textinfo='percent+label')
+            fig_corr_pie.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_corr_pie.update_layout(
+                title_font=dict(size=30),
+                legend=dict(font=dict(size=26))
+            )
             st.plotly_chart(fig_corr_pie, use_container_width=True)
 
 except FileNotFoundError:
