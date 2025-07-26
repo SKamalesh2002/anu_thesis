@@ -12,8 +12,10 @@ import io
 import base64
 from PIL import Image
 import zipfile
-import zipfile
 import io
+from pdf_borders import add_word_style_borders
+import tempfile
+import os
 
 # Set global Plotly font size configuration
 import plotly.io as pio
@@ -185,6 +187,45 @@ try:
             "Combined Analysis",
         ],
     )
+    
+    # PDF Border Processing
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("📄 PDF Border Tool")
+    
+    uploaded_file = st.sidebar.file_uploader("Upload PDF", type="pdf")
+    if uploaded_file is not None:
+        if st.sidebar.button("Add Borders", type="primary"):
+            try:
+                # Create temporary files
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_input:
+                    tmp_input.write(uploaded_file.getvalue())
+                    tmp_input_path = tmp_input.name
+                
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_output:
+                    tmp_output_path = tmp_output.name
+                
+                # Add borders
+                add_word_style_borders(tmp_input_path, tmp_output_path)
+                
+                # Read the processed file
+                with open(tmp_output_path, "rb") as f:
+                    processed_pdf = f.read()
+                
+                # Clean up temporary files
+                os.unlink(tmp_input_path)
+                os.unlink(tmp_output_path)
+                
+                # Provide download button
+                st.sidebar.download_button(
+                    label="📥 Download PDF with Borders",
+                    data=processed_pdf,
+                    file_name=f"bordered_{uploaded_file.name}",
+                    mime="application/pdf"
+                )
+                st.sidebar.success("✅ Borders added successfully!")
+                
+            except Exception as e:
+                st.sidebar.error(f"Error processing PDF: {str(e)}")
     
     # Download functionality
     st.sidebar.markdown("---")
