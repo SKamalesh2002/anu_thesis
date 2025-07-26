@@ -6,3 +6,4 @@ scipy
 seaborn
 matplotlib
 statsmodels
+PyMuPDF
