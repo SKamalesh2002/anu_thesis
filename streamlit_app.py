@@ -170,6 +170,9 @@ df["LACTATE CLEARANCE (clean)"] = (
 df["REPEAT LACTATE (clean)"] = (
     df["REPEAT LACTATE"].str.extract(r"([\d.]+)").astype(float)
 )
+df["CRP (clean)"] = (
+    df["CRP"].str.extract(r"([\d.]+)").astype(float)
+)
 try:
     # Sidebar for navigation
     st.sidebar.title("Navigation")
@@ -180,6 +183,7 @@ try:
             "Initial Lactate Analysis",
             "Lactate Clearance Analysis",
             "Repeat Lactate Analysis",
+            "CRP Analysis",
             "Age Analysis",
             "CAD Analysis",
             "SHTN+T2DM Analysis",
@@ -997,6 +1001,86 @@ try:
             st.write(f"Mean: {dead_group.mean():.2f} mmol/L")
             st.write(f"Median: {dead_group.median():.2f} mmol/L")
             st.write(f"Std Dev: {dead_group.std():.2f} mmol/L")
+            st.write(f"Count: {len(dead_group)}")
+
+    elif analysis_type == "CRP Analysis":
+        st.header("🔬 CRP vs Clinical Outcomes")
+
+        # Filter data
+        filtered_df = df[["CRP (clean)", "CLINICAL OUTCOMES"]].dropna()
+        alive_group = filtered_df[filtered_df["CLINICAL OUTCOMES"] == "ALIVE"]["CRP (clean)"]
+        dead_group = filtered_df[filtered_df["CLINICAL OUTCOMES"] == "DEAD"]["CRP (clean)"]
+
+        # Mann-Whitney U Test
+        u_stat, p_value = mannwhitneyu(alive_group, dead_group, alternative="two-sided")
+
+        # Display test results
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("U-Statistic", f"{u_stat:.2f}")
+        with col2:
+            st.metric("P-Value", f"{p_value:.4f}")
+        with col3:
+            significance = "Significant" if p_value < 0.05 else "Not Significant"
+            st.metric("Result", significance)
+
+        # Bar chart comparing mean values
+        mean_alive = alive_group.mean()
+        mean_dead = dead_group.mean()
+        
+        fig_bar = go.Figure()
+        fig_bar.add_trace(
+            go.Bar(
+                x=["ALIVE", "DEAD"],
+                y=[mean_alive, mean_dead],
+                marker_color=["#2E8B57", "#DC143C"],
+                name="Mean CRP"
+            )
+        )
+        fig_bar.update_layout(
+            title="Mean CRP by Clinical Outcome",
+            yaxis_title="Mean CRP (mg/L)",
+            xaxis_title="Clinical Outcome",
+            title_font=dict(size=30),
+            legend=dict(font=dict(size=26)),
+            xaxis=dict(title_font=dict(size=28), tickfont=dict(size=26)),
+            yaxis=dict(title_font=dict(size=28), tickfont=dict(size=26))
+        )
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+        # Pie chart showing CRP categories
+        normal_crp = len(filtered_df[filtered_df["CRP (clean)"] <= 10])
+        elevated_crp = len(filtered_df[filtered_df["CRP (clean)"] > 10])
+        
+        fig_pie = px.pie(
+            values=[normal_crp, elevated_crp],
+            names=["Normal CRP (≤10 mg/L)", "Elevated CRP (>10 mg/L)"],
+            title="CRP Distribution (Normal vs Elevated)",
+            color_discrete_sequence=["#4ECDC4", "#FF6B6B"]
+        )
+        fig_pie.update_traces(textinfo='percent+label', textfont_size=26)
+        fig_pie.update_layout(
+            title_font=dict(size=30),
+            legend=dict(font=dict(size=26))
+        )
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+        # Summary statistics
+        st.subheader("📈 Summary Statistics")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.write("**ALIVE Group**")
+            st.write(f"Mean: {alive_group.mean():.2f} mg/L")
+            st.write(f"Median: {alive_group.median():.2f} mg/L")
+            st.write(f"Std Dev: {alive_group.std():.2f} mg/L")
+            st.write(f"Count: {len(alive_group)}")
+
+        with col2:
+            st.write("**DEAD Group**")
+            st.write(f"Mean: {dead_group.mean():.2f} mg/L")
+            st.write(f"Median: {dead_group.median():.2f} mg/L")
+            st.write(f"Std Dev: {dead_group.std():.2f} mg/L")
             st.write(f"Count: {len(dead_group)}")
 
     elif analysis_type == "Age Analysis":
