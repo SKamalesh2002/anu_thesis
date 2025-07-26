@@ -155,6 +155,39 @@ SARAVANAN,230818120368,51,MALE,SLIP AND FALL BACK PAIN,CKD CAD T2DM SHTN,130 mm 
 RAJAAMMAL,230825122789,80,FEMALE,BACK PAIN LOSS OF APPETITE,CKD SHTN,100 mm Hg,60 mm Hg,100/60 mm Hg,97%,20 min⁻¹,102 mg/dL,97.0 °F,99 BPM,57 mg/dL,1.7 mg/dL,56 mg/L,1.7 mmol/L,2.4 mmol/L,8.60%,DEAD
 SUBBIRAMANI,230910127920,58,MALE,BREATHLESSNESS,CKD T2DM SHTN APE,120 mm Hg,80 mm Hg,120/80 mm Hg,98%,22 min⁻¹,200 mg/dL,98.2 °F,104 BPM,345 mg/dL,16.6 mg/dL,83 mg/L,1.4 mmol/L,1.6 mmol/L,-14.29%,DEAD"""
 
+
+csv_data_2 = """STEPSIS LACTATE CLEARANCE,CLINICAL OUTCOME
+4.80%,DEAD
+66.67%,ALIVE
+36.84%,ALIVE
+78.32%,ALIVE
+41.18%,ALIVE
+19.91%,ALIVE
+1.43%,ALIVE
+34.78%,ALIVE
+52.00%,ALIVE
+66.67%,ALIVE
+53.49%,ALIVE
+21.62%,ALIVE
+45.58%,ALIVE
+44.74%,ALIVE
+50.00%,ALIVE
+21.74%,ALIVE
+42.98%,ALIVE
+39.53%,ALIVE
+40.91%,ALIVE
+57.39%,ALIVE
+20.00%,ALIVE
+5.55%,DEAD
+23.08%,ALIVE
+11.11%,ALIVE
+18.18%,ALIVE
+31.62%,ALIVE
+7.60%,DEAD
+44.88%,ALIVE
+12.50%,ALIVE
+-14.29%,DEAD
+88.55%,ALIVE"""
 # Create DataFrame from embedded data
 from io import StringIO
 
@@ -173,6 +206,12 @@ df["REPEAT LACTATE (clean)"] = (
 df["CRP (clean)"] = (
     df["CRP"].str.extract(r"([\d.]+)").astype(float)
 )
+
+# Create second DataFrame for STEPSIS analysis
+df2 = pd.read_csv(StringIO(csv_data_2))
+df2["STEPSIS LACTATE CLEARANCE (clean)"] = (
+    df2["STEPSIS LACTATE CLEARANCE"].str.extract(r"([\d.-]+)").astype(float)
+)
 try:
     # Sidebar for navigation
     st.sidebar.title("Navigation")
@@ -184,6 +223,7 @@ try:
             "Lactate Clearance Analysis",
             "Repeat Lactate Analysis",
             "CRP Analysis",
+            "STEPSIS Lactate Clearance Analysis",
             "Age Analysis",
             "CAD Analysis",
             "SHTN+T2DM Analysis",
@@ -266,7 +306,7 @@ try:
                         title="Clinical Outcomes Distribution",
                         color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}
                     )
-                    fig_outcomes.update_traces(textinfo='percent+label', textfont_size=26)
+                    fig_outcomes.update_traces(textinfo='percent+label', textfont_size=20)
                     fig_outcomes.update_layout(
                         title_font=dict(size=30),
                         legend=dict(font=dict(size=26))
@@ -282,7 +322,7 @@ try:
                         title="Gender Distribution",
                         color_discrete_map={"MALE": "#4169E1", "FEMALE": "#FF69B4"}
                     )
-                    fig_gender.update_traces(textinfo='percent+label', textfont_size=26)
+                    fig_gender.update_traces(textinfo='percent+label', textfont_size=20)
                     fig_gender.update_layout(
                         title_font=dict(size=30),
                         legend=dict(font=dict(size=26))
@@ -303,7 +343,7 @@ try:
                         title="Age Group Distribution",
                         color_discrete_sequence=["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"]
                     )
-                    fig_age_pie.update_traces(textinfo='percent+label', textfont_size=26)
+                    fig_age_pie.update_traces(textinfo='percent+label', textfont_size=20)
                     fig_age_pie.update_layout(
                         title_font=dict(size=30),
                         legend=dict(font=dict(size=26))
@@ -368,7 +408,7 @@ try:
                         title="Initial Lactate Distribution (High vs Low)",
                         color_discrete_sequence=["#FF6B6B", "#4ECDC4"]
                     )
-                    fig_pie.update_traces(textinfo='percent+label', textfont_size=26)
+                    fig_pie.update_traces(textinfo='percent+label', textfont_size=20)
                     fig_pie.update_layout(
                         title_font=dict(size=30),
                         legend=dict(font=dict(size=26))
@@ -428,7 +468,7 @@ try:
                 
                 # Overview graphs
                 fig1 = px.pie(values=[alive_count, dead_count], names=["ALIVE", "DEAD"], title="Clinical Outcomes Distribution", color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"})
-                fig1.update_traces(textinfo='percent+label', textfont_size=26)
+                fig1.update_traces(textinfo='percent+label', textfont_size=20)
                 fig1.update_layout(
                     title_font=dict(size=30),
                     legend=dict(font=dict(size=26))
@@ -436,7 +476,7 @@ try:
                 add_fig_to_zip(fig1, "01_Clinical_Outcomes_Distribution")
                 
                 fig2 = px.pie(values=[male_count, female_count], names=["MALE", "FEMALE"], title="Gender Distribution", color_discrete_map={"MALE": "#4169E1", "FEMALE": "#FF69B4"})
-                fig2.update_traces(textinfo='percent+label', textfont_size=26)
+                fig2.update_traces(textinfo='percent+label', textfont_size=20)
                 fig2.update_layout(
                     title_font=dict(size=30),
                     legend=dict(font=dict(size=26))
@@ -447,7 +487,7 @@ try:
                 df["Age_Group"] = pd.cut(df["AGE"], bins=[0, 40, 60, 80, 100], labels=["20-40", "41-60", "61-80", ">80"], right=True)
                 age_group_counts = df["Age_Group"].value_counts().sort_index()
                 fig3 = px.pie(values=age_group_counts.values, names=age_group_counts.index, title="Age Group Distribution", color_discrete_sequence=["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"])
-                fig3.update_traces(textinfo='percent+label', textfont_size=26)
+                fig3.update_traces(textinfo='percent+label', textfont_size=20)
                 fig3.update_layout(
                     title_font=dict(size=30),
                     legend=dict(font=dict(size=26))
@@ -530,9 +570,10 @@ try:
                 values=[alive_count, dead_count],
                 names=["ALIVE", "DEAD"],
                 title="Clinical Outcomes Distribution",
-                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}
+                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
+                hole=0.4
             )
-            fig_pie.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie.update_traces(textinfo='percent+label', textfont_size=20)
             fig_pie.update_layout(
                 title_font=dict(size=30),
                 legend=dict(font=dict(size=26))
@@ -548,9 +589,10 @@ try:
                 values=[male_count, female_count],
                 names=["MALE", "FEMALE"],
                 title="Gender Distribution",
-                color_discrete_map={"MALE": "#4169E1", "FEMALE": "#FF69B4"}
+                color_discrete_map={"MALE": "#4169E1", "FEMALE": "#FF69B4"},
+                hole=0.4
             )
-            fig_gender.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_gender.update_traces(textinfo='percent+label', textfont_size=20)
             fig_gender.update_layout(
                 title_font=dict(size=30),
                 legend=dict(font=dict(size=26))
@@ -588,9 +630,10 @@ try:
                 values=age_group_counts.values,
                 names=age_group_counts.index,
                 title="Age Group Distribution",
-                color_discrete_sequence=["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"]
+                color_discrete_sequence=["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"],
+                hole=0.4
             )
-            fig_age_pie.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_age_pie.update_traces(textinfo='percent+label', textfont_size=20)
             fig_age_pie.update_layout(
                 title_font=dict(size=30),
                 legend=dict(font=dict(size=26))
@@ -687,9 +730,10 @@ try:
             values=[high_lactate, low_lactate],
             names=[f"High (>{lactate_threshold:.1f})", f"Low (≤{lactate_threshold:.1f})"],
             title="Initial Lactate Distribution (High vs Low)",
-            color_discrete_sequence=["#FF6B6B", "#4ECDC4"]
+            color_discrete_sequence=["#FF6B6B", "#4ECDC4"],
+            hole=0.4
         )
-        fig_pie.update_traces(textinfo='percent+label', textfont_size=26)
+        fig_pie.update_traces(textinfo='percent+label', textfont_size=20)
         fig_pie.update_layout(
             title_font=dict(size=30),
             legend=dict(font=dict(size=26))
@@ -831,9 +875,10 @@ try:
             values=[good_clearance, poor_clearance],
             names=["Good Clearance (≥20%)", "Poor Clearance (<20%)"],
             title="Lactate Clearance Categories",
-            color_discrete_sequence=["#2E8B57", "#DC143C"]
+            color_discrete_sequence=["#2E8B57", "#DC143C"],
+            hole=0.4
         )
-        fig_pie.update_traces(textinfo='percent+label', textfont_size=26)
+        fig_pie.update_traces(textinfo='percent+label', textfont_size=20)
         fig_pie.update_layout(
             title_font=dict(size=30),
             legend=dict(font=dict(size=26))
@@ -976,9 +1021,10 @@ try:
             values=[normal_lactate, elevated_lactate],
             names=[f"Normal (≤{normal_threshold})", f"Elevated (>{normal_threshold})"],
             title="Repeat Lactate Categories",
-            color_discrete_sequence=["#4ECDC4", "#FF6B6B"]
+            color_discrete_sequence=["#4ECDC4", "#FF6B6B"],
+            hole=0.4
         )
-        fig_pie.update_traces(textinfo='percent+label', textfont_size=26)
+        fig_pie.update_traces(textinfo='percent+label', textfont_size=20)
         fig_pie.update_layout(
             title_font=dict(size=30),
             legend=dict(font=dict(size=26))
@@ -1056,9 +1102,10 @@ try:
             values=[normal_crp, elevated_crp],
             names=["Normal CRP (≤10 mg/L)", "Elevated CRP (>10 mg/L)"],
             title="CRP Distribution (Normal vs Elevated)",
-            color_discrete_sequence=["#4ECDC4", "#FF6B6B"]
+            color_discrete_sequence=["#4ECDC4", "#FF6B6B"],
+            hole=0.4
         )
-        fig_pie.update_traces(textinfo='percent+label', textfont_size=26)
+        fig_pie.update_traces(textinfo='percent+label', textfont_size=20)
         fig_pie.update_layout(
             title_font=dict(size=30),
             legend=dict(font=dict(size=26))
@@ -1081,6 +1128,87 @@ try:
             st.write(f"Mean: {dead_group.mean():.2f} mg/L")
             st.write(f"Median: {dead_group.median():.2f} mg/L")
             st.write(f"Std Dev: {dead_group.std():.2f} mg/L")
+            st.write(f"Count: {len(dead_group)}")
+
+    elif analysis_type == "STEPSIS Lactate Clearance Analysis":
+        st.header("🔄 STEPSIS Lactate Clearance vs Clinical Outcomes")
+
+        # Filter data
+        filtered_df = df2[["STEPSIS LACTATE CLEARANCE (clean)", "CLINICAL OUTCOME"]].dropna()
+        alive_group = filtered_df[filtered_df["CLINICAL OUTCOME"] == "ALIVE"]["STEPSIS LACTATE CLEARANCE (clean)"]
+        dead_group = filtered_df[filtered_df["CLINICAL OUTCOME"] == "DEAD"]["STEPSIS LACTATE CLEARANCE (clean)"]
+
+        # Mann-Whitney U Test
+        u_stat, p_value = mannwhitneyu(alive_group, dead_group, alternative="two-sided")
+
+        # Display test results
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("U-Statistic", f"{u_stat:.2f}")
+        with col2:
+            st.metric("P-Value", f"{p_value:.4f}")
+        with col3:
+            significance = "Significant" if p_value < 0.05 else "Not Significant"
+            st.metric("Result", significance)
+
+        # Bar chart comparing mean values
+        mean_alive = alive_group.mean()
+        mean_dead = dead_group.mean()
+        
+        fig_bar = go.Figure()
+        fig_bar.add_trace(
+            go.Bar(
+                x=["ALIVE", "DEAD"],
+                y=[mean_alive, mean_dead],
+                marker_color=["#2E8B57", "#DC143C"],
+                name="Mean STEPSIS Lactate Clearance"
+            )
+        )
+        fig_bar.update_layout(
+            title="Mean STEPSIS Lactate Clearance by Clinical Outcome",
+            yaxis_title="Mean STEPSIS Lactate Clearance (%)",
+            xaxis_title="Clinical Outcome",
+            title_font=dict(size=30),
+            legend=dict(font=dict(size=26)),
+            xaxis=dict(title_font=dict(size=28), tickfont=dict(size=26)),
+            yaxis=dict(title_font=dict(size=28), tickfont=dict(size=26))
+        )
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+        # Donut chart showing clearance categories
+        good_clearance = len(filtered_df[filtered_df["STEPSIS LACTATE CLEARANCE (clean)"] >= 20])
+        poor_clearance = len(filtered_df[filtered_df["STEPSIS LACTATE CLEARANCE (clean)"] < 20])
+        
+        fig_pie = px.pie(
+            values=[good_clearance, poor_clearance],
+            names=["Good Clearance (≥20%)", "Poor Clearance (<20%)"],
+            title="STEPSIS Lactate Clearance Categories",
+            color_discrete_sequence=["#2E8B57", "#DC143C"],
+            hole=0.4
+        )
+        fig_pie.update_traces(textinfo='percent+label', textfont_size=26)
+        fig_pie.update_layout(
+            title_font=dict(size=30),
+            legend=dict(font=dict(size=26))
+        )
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+        # Summary statistics
+        st.subheader("📈 Summary Statistics")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.write("**ALIVE Group**")
+            st.write(f"Mean: {alive_group.mean():.2f}%")
+            st.write(f"Median: {alive_group.median():.2f}%")
+            st.write(f"Std Dev: {alive_group.std():.2f}%")
+            st.write(f"Count: {len(alive_group)}")
+
+        with col2:
+            st.write("**DEAD Group**")
+            st.write(f"Mean: {dead_group.mean():.2f}%")
+            st.write(f"Median: {dead_group.median():.2f}%")
+            st.write(f"Std Dev: {dead_group.std():.2f}%")
             st.write(f"Count: {len(dead_group)}")
 
     elif analysis_type == "Age Analysis":
@@ -1204,9 +1332,10 @@ try:
                 values=alive_counts.values,
                 names=alive_counts.index,
                 title="Age Groups - ALIVE Patients",
-                color_discrete_sequence=["#90EE90", "#32CD32", "#228B22"]
+                color_discrete_sequence=["#90EE90", "#32CD32", "#228B22"],
+                hole=0.4
             )
-            fig_pie_alive.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie_alive.update_traces(textinfo='percent+label', textfont_size=20)
             fig_pie_alive.update_layout(
                 title_font=dict(size=30),
                 legend=dict(font=dict(size=26))
@@ -1222,9 +1351,10 @@ try:
                 values=dead_counts.values,
                 names=dead_counts.index,
                 title="Age Groups - DEAD Patients",
-                color_discrete_sequence=["#FFB6C1", "#FF69B4", "#DC143C"]
+                color_discrete_sequence=["#FFB6C1", "#FF69B4", "#DC143C"],
+                hole=0.4
             )
-            fig_pie_dead.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie_dead.update_traces(textinfo='percent+label', textfont_size=20)
             fig_pie_dead.update_layout(
                 title_font=dict(size=30),
                 legend=dict(font=dict(size=26))
@@ -1338,9 +1468,10 @@ try:
                 values=[cad_alive + cad_dead, no_cad_alive + no_cad_dead],
                 names=["CAD Patients", "No CAD Patients"],
                 title="CAD Distribution",
-                color_discrete_sequence=["#FF6B6B", "#4ECDC4"]
+                color_discrete_sequence=["#FF6B6B", "#4ECDC4"],
+                hole=0.4
             )
-            fig_pie_cad.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie_cad.update_traces(textinfo='percent+label', textfont_size=20)
             fig_pie_cad.update_layout(
                 title_font=dict(size=30),
                 legend=dict(font=dict(size=26))
@@ -1352,9 +1483,10 @@ try:
                 values=[cad_alive + no_cad_alive, cad_dead + no_cad_dead],
                 names=["ALIVE", "DEAD"],
                 title="Overall Outcomes",
-                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}
+                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
+                hole=0.4
             )
-            fig_pie_outcome.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie_outcome.update_traces(textinfo='percent+label', textfont_size=20)
             fig_pie_outcome.update_layout(
                 title_font=dict(size=30),
                 legend=dict(font=dict(size=26))
@@ -1491,9 +1623,10 @@ try:
                 values=[shtn_t2dm_alive + shtn_t2dm_dead, no_shtn_t2dm_alive + no_shtn_t2dm_dead],
                 names=["SHTN+T2DM", "Others"],
                 title="SHTN+T2DM Distribution",
-                color_discrete_sequence=["#FFD93D", "#96CEB4"]
+                color_discrete_sequence=["#FFD93D", "#96CEB4"],
+                hole=0.4
             )
-            fig_pie_shtn.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie_shtn.update_traces(textinfo='percent+label', textfont_size=20)
             fig_pie_shtn.update_layout(
                 title_font=dict(size=30),
                 legend=dict(font=dict(size=26))
@@ -1505,9 +1638,10 @@ try:
                 values=[shtn_t2dm_alive + no_shtn_t2dm_alive, shtn_t2dm_dead + no_shtn_t2dm_dead],
                 names=["ALIVE", "DEAD"],
                 title="Overall Outcomes",
-                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}
+                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
+                hole=0.4
             )
-            fig_pie_outcome.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie_outcome.update_traces(textinfo='percent+label', textfont_size=20)
             fig_pie_outcome.update_layout(
                 title_font=dict(size=30),
                 legend=dict(font=dict(size=26))
@@ -1670,9 +1804,10 @@ try:
                 values=[unstable_alive + unstable_dead, stable_alive + stable_dead],
                 names=["Unstable Hemodynamics", "Stable Hemodynamics"],
                 title="Hemodynamic Status Distribution",
-                color_discrete_sequence=["#FF6B6B", "#4ECDC4"]
+                color_discrete_sequence=["#FF6B6B", "#4ECDC4"],
+                hole=0.4
             )
-            fig_pie_hemo.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie_hemo.update_traces(textinfo='percent+label', textfont_size=20)
             fig_pie_hemo.update_layout(
                 title_font=dict(size=30),
                 legend=dict(font=dict(size=26))
@@ -1684,9 +1819,10 @@ try:
                 values=[unstable_alive + stable_alive, unstable_dead + stable_dead],
                 names=["ALIVE", "DEAD"],
                 title="Overall Outcomes",
-                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"}
+                color_discrete_map={"ALIVE": "#2E8B57", "DEAD": "#DC143C"},
+                hole=0.4
             )
-            fig_pie_outcome.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_pie_outcome.update_traces(textinfo='percent+label', textfont_size=20)
             fig_pie_outcome.update_layout(
                 title_font=dict(size=30),
                 legend=dict(font=dict(size=26))
@@ -2032,9 +2168,10 @@ try:
                 values=corr_counts.values,
                 names=corr_counts.index,
                 title="Initial Lactate Categories Distribution",
-                color_discrete_sequence=["#4ECDC4", "#FFD93D", "#FF6B6B"]
+                color_discrete_sequence=["#4ECDC4", "#FFD93D", "#FF6B6B"],
+                hole=0.4
             )
-            fig_corr_pie.update_traces(textinfo='percent+label', textfont_size=26)
+            fig_corr_pie.update_traces(textinfo='percent+label', textfont_size=20)
             fig_corr_pie.update_layout(
                 title_font=dict(size=30),
                 legend=dict(font=dict(size=26))
